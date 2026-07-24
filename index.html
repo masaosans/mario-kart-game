@@ -496,9 +496,9 @@ const player = {
   segIdx: 10,
   lateralOffset: 0,
   speed: 0,
-  maxSpeed: 8,
-  acceleration: 0.15,
-  turnSpeed: 3,
+  maxSpeed: 4,
+  acceleration: 0.06,
+  turnSpeed: 2.5,
   lap: 1,
   totalLaps: 3,
   finished: false,
@@ -512,9 +512,9 @@ const player = {
 // ==================== AIカー ====================
 const aiCars = [];
 const aiConfigs = [
-  { segIdx: 5, lateralOffset: -20, speed: 6.5, color: 0x9b59b6, emoji: '👑' },
-  { segIdx: 15, lateralOffset: 15, speed: 7, color: 0x3498db, emoji: '🍄' },
-  { segIdx: 8, lateralOffset: -10, speed: 6.8, color: 0x2ecc71, emoji: '🟢' }
+  { segIdx: 5, lateralOffset: -20, speed: 3.2, color: 0x9b59b6, emoji: '👑' },
+  { segIdx: 15, lateralOffset: 15, speed: 3.5, color: 0x3498db, emoji: '🍄' },
+  { segIdx: 8, lateralOffset: -10, speed: 3.3, color: 0x2ecc71, emoji: '🟢' }
 ];
 
 aiConfigs.forEach(cfg => {
@@ -828,14 +828,14 @@ function updateCamera() {
   const px = seg.x + seg.nx * player.lateralOffset;
   const pz = seg.z + seg.nz * player.lateralOffset;
   
-  // カメラ位置（後方上空）
-  const camDist = 25;
-  const camHeight = 15;
+  // カメラ位置（後方上空）- 即座に追従
+  const camDist = 18;
+  const camHeight = 10;
   
   const targetX = px - seg.tx * camDist;
   const targetZ = pz - seg.tz * camDist;
   
-  camera.position.lerp(new THREE.Vector3(targetX, camHeight, targetZ), 0.1);
+  camera.position.set(targetX, camHeight, targetZ);
   
   // プレイヤーを見つめる
   const lookTarget = new THREE.Vector3(px + seg.tx * 10, 2, pz + seg.tz * 10);
@@ -919,7 +919,8 @@ function finishRace() {
 function animate() {
   if (gameState !== 'racing') return;
   
-  const dt = Math.min(2, 1); // 簡略化
+  const dt = Math.min(2, (performance.now() - lastFrame) / 16.67);
+  lastFrame = performance.now();
   gameTime += dt / 60;
   
   updatePlayer(dt);
@@ -936,6 +937,8 @@ function animate() {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
+
+let lastFrame = performance.now();
 
 // ==================== タッチ操作検出 ====================
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
