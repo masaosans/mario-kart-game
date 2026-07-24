@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>🏎️ ブラウザ版マリオカート</title>
+<title>🏎️ 3D ブラウザ版マリオカート</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #1a1a2e; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
+body { background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
 canvas { display: block; }
 
 /* スタート画面 */
@@ -14,13 +14,13 @@ canvas { display: block; }
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: linear-gradient(135deg, #e74c3c, #f39c12, #2ecc71, #3498db);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  z-index: 100; animation: bgShift 5s ease infinite;
+  z-index: 100; animation: bgShift 5s ease infinite; background-size: 400% 400%;
 }
 @keyframes bgShift {
   0%,100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
-#startScreen h1 { font-size: clamp(2rem, 8vw, 4rem); color: #fff; text-shadow: 3px 3px 0 #e74c3c, -1px -1px 0 #f39c12; margin-bottom: 10px; }
+#startScreen h1 { font-size: clamp(2rem, 8vw, 4.5rem); color: #fff; text-shadow: 3px 3px 0 rgba(0,0,0,0.3); margin-bottom: 5px; }
 #startScreen .subtitle { font-size: clamp(0.8rem, 3vw, 1.2rem); color: rgba(255,255,255,0.9); margin-bottom: 30px; }
 #startBtn {
   padding: 15px 50px; font-size: clamp(1.2rem, 4vw, 1.8rem); border: none; border-radius: 50px;
@@ -34,15 +34,15 @@ canvas { display: block; }
 /* コントロール */
 #controls {
   position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px;
-  display: none; z-index: 50;
+  display: none; z-index: 50; pointer-events: none;
 }
-.ctrl-row { display: flex; justify-content: space-between; align-items: center; }
+.ctrl-row { display: flex; justify-content: space-between; align-items: center; pointer-events: auto; }
 .dpad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 4px; }
 .dpad-btn {
   width: 60px; height: 60px; border-radius: 12px; border: 3px solid rgba(255,255,255,0.5);
   background: rgba(255,255,255,0.15); color: #fff; font-size: 24px; display: flex;
   align-items: center; justify-content: center; cursor: pointer; user-select: none;
-  -webkit-user-select: none; touch-action: manipulation;
+  -webkit-user-select: none; touch-action: manipulation; backdrop-filter: blur(3px);
 }
 .dpad-btn:active { background: rgba(255,255,255,0.4); }
 .dpad-center { visibility: hidden; }
@@ -51,7 +51,7 @@ canvas { display: block; }
   width: 70px; height: 70px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.5);
   background: rgba(255,255,255,0.15); color: #fff; font-size: 14px; font-weight: bold;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation; backdrop-filter: blur(3px);
 }
 .action-btn:active { background: rgba(255,255,255,0.4); }
 #boostBtn { background: rgba(231,76,60,0.4); border-color: #e74c3c; }
@@ -71,10 +71,10 @@ canvas { display: block; }
 
 /* アイテム表示 */
 #itemDisplay {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
   background: rgba(0,0,0,0.7); color: #f39c12; padding: 15px 30px; border-radius: 15px;
   font-size: clamp(1rem, 4vw, 1.5rem); font-weight: bold; display: none; z-index: 60;
-  text-align: center;
+  text-align: center; border: 2px solid #f39c12;
 }
 
 /* カウントダウン */
@@ -87,7 +87,7 @@ canvas { display: block; }
 /* ゴール画面 */
 #goalScreen {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.8); display: none; flex-direction: column;
+  background: rgba(0,0,0,0.85); display: none; flex-direction: column;
   align-items: center; justify-content: center; z-index: 200; color: #fff;
 }
 #goalScreen h1 { font-size: clamp(2rem, 8vw, 3.5rem); margin-bottom: 10px; }
@@ -97,7 +97,6 @@ canvas { display: block; }
   background: #f39c12; color: #fff; font-weight: bold; cursor: pointer;
 }
 
-/* レスポンシブ */
 @media (min-width: 768px) {
   .dpad-btn { width: 70px; height: 70px; }
   .action-btn { width: 80px; height: 80px; font-size: 16px; }
@@ -106,21 +105,16 @@ canvas { display: block; }
 </head>
 <body>
 
-<!-- スタート画面 -->
 <div id="startScreen">
   <div class="kart-emoji">🏎️💨</div>
-  <h1>MARIO KART</h1>
-  <p class="subtitle">ブラウザで遊べる！スマホ対応レーシングゲーム</p>
+  <h1>MARIO KART 3D</h1>
+  <p class="subtitle">Three.js 3D レーシングゲーム</p>
   <button id="startBtn" onclick="startGame()">🏁 スタート！</button>
   <p style="color:rgba(255,255,255,0.6); margin-top:20px; font-size:clamp(0.7rem,2vw,0.9rem)">
     PC: WASD/矢印キー | スマホ: タッチ操作
   </p>
 </div>
 
-<!-- キャンバス -->
-<canvas id="gameCanvas"></canvas>
-
-<!-- HUD -->
 <div id="hud">
   <div class="hud-box"><span class="label">LAP</span><br><span class="value" id="lapDisplay">1/3</span></div>
   <div class="hud-box"><span class="label">TIME</span><br><span class="value" id="timeDisplay">0:00</span></div>
@@ -128,13 +122,9 @@ canvas { display: block; }
   <div class="hud-box"><span class="label">SPEED</span><br><span class="value" id="speedDisplay">0 km/h</span></div>
 </div>
 
-<!-- アイテム表示 -->
 <div id="itemDisplay"></div>
-
-<!-- カウントダウン -->
 <div id="countdown"></div>
 
-<!-- コントロール（スマホ） -->
 <div id="controls">
   <div class="ctrl-row">
     <div class="dpad">
@@ -149,110 +139,368 @@ canvas { display: block; }
   </div>
 </div>
 
-<!-- ゴール画面 -->
 <div id="goalScreen">
   <h1 id="goalTitle">🏆 ゴール！</h1>
   <p class="time" id="goalTime"></p>
   <button id="restartBtn" onclick="location.reload()">もう一度遊ぶ 🔄</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
-// ==================== ゲーム設定 ====================
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// ==================== Three.js セットアップ ====================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.0004);
 
-let W, H;
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 1, 5000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// 照明
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+dirLight.position.set(500, 800, 300);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 10;
+dirLight.shadow.camera.far = 2000;
+dirLight.shadow.camera.left = -600;
+dirLight.shadow.camera.right = 600;
+dirLight.shadow.camera.top = 600;
+dirLight.shadow.camera.bottom = -600;
+scene.add(dirLight);
+
+const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3a7d3a, 0.4);
+scene.add(hemiLight);
+
+// ==================== リサイズ ====================
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
-resize();
-window.addEventListener('resize', resize);
-
-// タッチ操作検出
-const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-if (isMobile) document.getElementById('controls').style.display = 'block';
+window.addEventListener('resize', onResize);
 
 // ==================== トラック定義 ====================
-// ポリラインでトラックを定義（セグメントごとの曲率）
 const trackPoints = [];
-const trackWidth = 120;
-const numTrackPts = 300;
+const trackWidth = 80;
+const numTrackPts = 200;
 
-// 楕円ベースのトラック生成
 for (let i = 0; i < numTrackPts; i++) {
   const t = (i / numTrackPts) * Math.PI * 2;
-  // 変形楕円で少し不規則に
-  const rx = 1800 + Math.sin(t * 3) * 400;
-  const ry = 1200 + Math.cos(t * 2) * 300;
-  trackPoints.push({
-    x: Math.cos(t) * rx,
-    y: Math.sin(t) * ry
-  });
+  const rx = 1200 + Math.sin(t * 3) * 350;
+  const ry = 800 + Math.cos(t * 2) * 250;
+  trackPoints.push({ x: Math.cos(t) * rx, z: Math.sin(t) * ry });
 }
 
-// セグメントごとの法線を計算
+// セグメント計算
 const segments = [];
 for (let i = 0; i < numTrackPts; i++) {
   const curr = trackPoints[i];
   const next = trackPoints[(i + 1) % numTrackPts];
   const prev = trackPoints[(i - 1 + numTrackPts) % numTrackPts];
   
-  // 接線ベクトル
   let dx = next.x - prev.x;
-  let dy = next.y - prev.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  dx /= len; dy /= len;
+  let dz = next.z - prev.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  dx /= len; dz /= len;
   
-  // 法線（左向き）
   segments.push({
-    x: curr.x, y: curr.y,
-    tx: dx, ty: dy,
-    nx: -dy, ny: dx,
-    curve: Math.abs(Math.sin(i * 0.1)) // 曲率（視覚用）
+    x: curr.x, z: curr.z,
+    tx: dx, tz: dz,
+    nx: -dz, nz: dx,
+    curve: Math.abs(Math.sin(i * 0.15))
   });
+}
+
+// ==================== 地面 ====================
+const groundGeo = new THREE.PlaneGeometry(6000, 6000);
+const groundMat = new THREE.MeshLambertMaterial({ color: 0x4a8c3f });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ==================== 道路メッシュ生成 ====================
+function createRoadMesh() {
+  const roadGroup = new THREE.Group();
+  
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i];
+    const ns = segments[(i + 1) % numTrackPts];
+    
+    // 四角形メッシュ（2頂点×幅）
+    const geo = new THREE.BufferGeometry();
+    const hw = trackWidth / 2;
+    
+    const vertices = new Float32Array([
+      s.x - s.nx * hw, 0.1, s.z - s.nz * hw,
+      s.x + s.nx * hw, 0.1, s.z + s.nz * hw,
+      ns.x - ns.nx * hw, 0.1, ns.z - ns.nz * hw,
+      ns.x + ns.nx * hw, 0.1, ns.z + ns.nz * hw,
+    ]);
+    
+    const indices = [0, 2, 1, 1, 2, 3];
+    geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    
+    // 色：曲率に応じて少し変える（視覚的フィードバック）
+    const curveColor = s.curve > 0.5 ? 0x666666 : 0x555555;
+    const mat = new THREE.MeshLambertMaterial({ color: curveColor });
+    
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    roadGroup.add(mesh);
+  }
+  
+  scene.add(roadGroup);
+}
+
+// ==================== 縁石（ペデストリアン） ====================
+function createCurbMesh() {
+  const curbGroup = new THREE.Group();
+  
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i];
+    const ns = segments[(i + 1) % numTrackPts];
+    const hw = trackWidth / 2 + 5;
+    
+    [1, -1].forEach(side => {
+      const isRed = Math.floor(i / 3) % 2 === 0;
+      
+      // 縁石メッシュ（小さな四角柱）
+      const geo = new THREE.BoxGeometry(8, 1.5, 6);
+      const mat = new THREE.MeshLambertMaterial({ color: isRed ? 0xe74c3c : 0xffffff });
+      
+      const cx = s.x + s.nx * hw * side;
+      const cz = s.z + s.nz * hw * side;
+      
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(cx, 0.75, cz);
+      mesh.lookAt(ns.x + ns.nx * hw * side, 0.75, ns.z + ns.nz * hw * side);
+      mesh.castShadow = true;
+      curbGroup.add(mesh);
+    });
+  }
+  
+  scene.add(curbGroup);
+}
+
+// ==================== スタート/ゴールライン ====================
+function createStartLine() {
+  const s = segments[0];
+  const hw = trackWidth / 2;
+  
+  // チェッカーパターン（複数の四角形）
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < Math.floor(trackWidth / 12); c++) {
+      if ((r + c) % 2 === 0) {
+        const t = c * 12 - trackWidth / 2 + 6;
+        const geo = new THREE.PlaneGeometry(10, 10);
+        const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(s.x + s.nx * t, 0.15, s.z + s.nz * t);
+        scene.add(mesh);
+      }
+    }
+  }
+}
+
+// ==================== 装飾オブジェクト（木々） ====================
+function createTrees() {
+  const treeGroup = new THREE.Group();
+  
+  for (let i = 0; i < 80; i++) {
+    const segIdx = Math.floor(Math.random() * numTrackPts);
+    const s = segments[segIdx];
+    
+    // トラックの外側に配置
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const dist = trackWidth / 2 + 30 + Math.random() * 400;
+    const tx = s.x + s.nx * dist * side;
+    const tz = s.z + s.nz * dist * side;
+    
+    // 幹
+    const trunkGeo = new THREE.CylinderGeometry(2, 3, 15, 6);
+    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.set(tx, 7.5, tz);
+    trunk.castShadow = true;
+    
+    // 葉
+    const leavesGeo = new THREE.ConeGeometry(10 + Math.random() * 8, 20 + Math.random() * 10, 6);
+    const leavesMat = new THREE.MeshLambertMaterial({ color: 0x2d5a27 });
+    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+    leaves.position.set(tx, 22 + Math.random() * 5, tz);
+    leaves.castShadow = true;
+    
+    treeGroup.add(trunk);
+    treeGroup.add(leaves);
+  }
+  
+  scene.add(treeGroup);
+}
+
+// ==================== カード作成関数 ====================
+function createCar(color, emoji) {
+  const group = new THREE.Group();
+  
+  // ボディ
+  const bodyGeo = new THREE.BoxGeometry(3.5, 2, 6);
+  const bodyMat = new THREE.MeshLambertMaterial({ color: color });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = 1.5;
+  body.castShadow = true;
+  group.add(body);
+  
+  // ルーフ
+  const roofGeo = new THREE.BoxGeometry(2.8, 1.5, 3);
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.set(0, 3, -0.5);
+  roof.castShadow = true;
+  group.add(roof);
+  
+  // ウィンドウ
+  const winGeo = new THREE.BoxGeometry(2.6, 1.2, 2.8);
+  const winMat = new THREE.MeshLambertMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.5 });
+  const win = new THREE.Mesh(winGeo, winMat);
+  win.position.set(0, 3, -0.5);
+  group.add(win);
+  
+  // タイヤ（4つ）
+  const tireGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.6, 8);
+  const tireMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  
+  [[-1.8, 0.8, -2], [1.8, 0.8, -2], [-1.8, 0.8, 2], [1.8, 0.8, 2]].forEach(([x, y, z]) => {
+    const tire = new THREE.Mesh(tireGeo, tireMat);
+    tire.rotation.z = Math.PI / 2;
+    tire.position.set(x, y, z);
+    tire.castShadow = true;
+    group.add(tire);
+  });
+  
+  // Emoji表示（スプライト）
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.font = '48px sans-serif';
+  ctx2d.textAlign = 'center';
+  ctx2d.fillText(emoji, 32, 50);
+  
+  const tex = new THREE.CanvasTexture(canvas);
+  const spriteMat = new THREE.SpriteMaterial({ map: tex });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.position.set(0, 5.5, 0);
+  sprite.scale.set(2, 2, 1);
+  group.add(sprite);
+  
+  return group;
 }
 
 // ==================== アイテムボックス ====================
-const itemBoxes = [];
+function createItemBox(x, z) {
+  const geo = new THREE.BoxGeometry(3, 3, 3);
+  const mat = new THREE.MeshLambertMaterial({ color: 0xf39c12 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, 1.5, z);
+  mesh.castShadow = true;
+  
+  // ? マーク
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.fillStyle = '#f39c12';
+  ctx2d.fillRect(0, 0, 64, 64);
+  ctx2d.strokeStyle = '#fff';
+  ctx2d.lineWidth = 4;
+  ctx2d.strokeRect(4, 4, 56, 56);
+  ctx2d.fillStyle = '#fff';
+  ctx2d.font = 'bold 36px sans-serif';
+  ctx2d.textAlign = 'center';
+  ctx2d.fillText('?', 32, 48);
+  
+  const tex = new THREE.CanvasTexture(canvas);
+  // テクスチャを全面に適用
+  const boxMat = new THREE.MeshLambertMaterial({ map: tex });
+  mesh.material = boxMat;
+  
+  scene.add(mesh);
+  return { mesh, active: true };
+}
+
+// ==================== コーン ====================
+function createCone(x, z) {
+  const group = new THREE.Group();
+  
+  // 本体（円錐）
+  const geo = new THREE.ConeGeometry(1.5, 4, 8);
+  const mat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
+  const cone = new THREE.Mesh(geo, mat);
+  cone.position.y = 2;
+  cone.castShadow = true;
+  group.add(cone);
+  
+  // 白線
+  const stripeGeo = new THREE.CylinderGeometry(1.6, 1.6, 0.5, 8);
+  const stripeMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+  stripe.position.y = 2;
+  group.add(stripe);
+  
+  group.position.set(x, 0, z);
+  scene.add(group);
+  return { group, hit: false };
+}
+
+// ==================== ゲームオブジェクト生成 ====================
+const itemBoxesData = [];
 for (let i = 0; i < 8; i++) {
   const segIdx = Math.floor((i / 8) * numTrackPts);
-  const seg = segments[segIdx];
+  const s = segments[segIdx];
   const offset = (Math.random() - 0.5) * trackWidth * 0.6;
-  itemBoxes.push({
-    x: seg.x + seg.nx * offset,
-    y: seg.y + seg.ny * offset,
-    active: true,
-    respawnTimer: 0
-  });
+  itemBoxesData.push(createItemBox(s.x + s.nx * offset, s.z + s.nz * offset));
 }
 
-// ==================== オブスタクル（コーン） ====================
-const cones = [];
-for (let i = 0; i < 15; i++) {
+const conesData = [];
+for (let i = 0; i < 12; i++) {
   const segIdx = Math.floor(Math.random() * numTrackPts);
-  const seg = segments[segIdx];
+  const s = segments[segIdx];
   const offset = (Math.random() - 0.5) * trackWidth * 0.7;
-  cones.push({
-    x: seg.x + seg.nx * offset,
-    y: seg.y + seg.ny * offset,
-    hit: false
-  });
+  conesData.push(createCone(s.x + s.nx * offset, s.z + s.nz * offset));
 }
+
+// 道路・縁石・装飾生成
+createRoadMesh();
+createCurbMesh();
+createStartLine();
+createTrees();
 
 // ==================== プレイヤー ====================
+const playerCar = createCar(0xe74c3c, '🏎️');
+scene.add(playerCar);
+
 const player = {
-  segIdx: 10, // 開始位置
-  lateralOffset: 0, // 横方向オフセット（-trackWidth/2 ~ trackWidth/2）
+  segIdx: 10,
+  lateralOffset: 0,
   speed: 0,
   maxSpeed: 8,
   acceleration: 0.15,
-  deceleration: 0.05,
   turnSpeed: 3,
-  angle: 0, // 画面表示用角度
   lap: 1,
   totalLaps: 3,
-  checkpointsPassed: new Set(),
   finished: false,
   finishTime: 0,
   item: null,
@@ -262,11 +510,91 @@ const player = {
 };
 
 // ==================== AIカー ====================
-const aiCars = [
-  { segIdx: 5, lateralOffset: -30, speed: 6.5, color: '#e74c3c', name: 'ルイージ', emoji: '🟢' },
-  { segIdx: 15, lateralOffset: 20, speed: 7, color: '#9b59b6', name: 'ピーチ', emoji: '👑' },
-  { segIdx: 8, lateralOffset: -10, speed: 6.8, color: '#3498db', name: 'キノピオ', emoji: '🍄' }
+const aiCars = [];
+const aiConfigs = [
+  { segIdx: 5, lateralOffset: -20, speed: 6.5, color: 0x9b59b6, emoji: '👑' },
+  { segIdx: 15, lateralOffset: 15, speed: 7, color: 0x3498db, emoji: '🍄' },
+  { segIdx: 8, lateralOffset: -10, speed: 6.8, color: 0x2ecc71, emoji: '🟢' }
 ];
+
+aiConfigs.forEach(cfg => {
+  const car = createCar(cfg.color, cfg.emoji);
+  scene.add(car);
+  aiCars.push({ ...cfg, mesh: car });
+});
+
+// ==================== パーティクルシステム ====================
+const particleGeo = new THREE.BufferGeometry();
+const MAX_PARTICLES = 200;
+const particlePositions = new Float32Array(MAX_PARTICLES * 3);
+const particleColors = new Float32Array(MAX_PARTICLES * 4);
+const particleSizes = new Float32Array(MAX_PARTICLES);
+
+particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 4));
+particleGeo.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
+
+const particleMat = new THREE.PointsMaterial({ size: 2, vertexColors: true, transparent: true, opacity: 0.8 });
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+let activeParticles = [];
+
+function addParticle(x, y, z, color, count) {
+  for (let i = 0; i < count && activeParticles.length < MAX_PARTICLES; i++) {
+    activeParticles.push({
+      x: x + (Math.random() - 0.5) * 10,
+      y: y + Math.random() * 3,
+      z: z + (Math.random() - 0.5) * 10,
+      vx: (Math.random() - 0.5) * 6,
+      vy: Math.random() * 4,
+      vz: (Math.random() - 0.5) * 6,
+      life: 30 + Math.random() * 20,
+      maxLife: 50,
+      r: (color >> 16 & 255) / 255,
+      g: (color >> 8 & 255) / 255,
+      b: (color & 255) / 255
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = activeParticles.length - 1; i >= 0; i--) {
+    const p = activeParticles[i];
+    p.x += p.vx * 0.5;
+    p.y += p.vy * 0.3;
+    p.z += p.vz * 0.5;
+    p.vy -= 0.1; // gravity
+    p.life--;
+    
+    if (p.life <= 0) {
+      activeParticles.splice(i, 1);
+    }
+  }
+  
+  for (let i = 0; i < MAX_PARTICLES; i++) {
+    if (i < activeParticles.length) {
+      const p = activeParticles[i];
+      particlePositions[i * 3] = p.x;
+      particlePositions[i * 3 + 1] = p.y;
+      particlePositions[i * 3 + 2] = p.z;
+      particleColors[i * 4] = p.r;
+      particleColors[i * 4 + 1] = p.g;
+      particleColors[i * 4 + 2] = p.b;
+      particleColors[i * 4 + 3] = p.life / p.maxLife;
+      particleSizes[i] = (p.life / p.maxLife) * 3;
+    } else {
+      particlePositions[i * 3] = 0;
+      particlePositions[i * 3 + 1] = -100;
+      particlePositions[i * 3 + 2] = 0;
+      particleColors[i * 4 + 3] = 0;
+    }
+  }
+  
+  particleGeo.attributes.position.needsUpdate = true;
+  particleGeo.attributes.color.needsUpdate = true;
+  particleGeo.attributes.size.needsUpdate = true;
+}
 
 // ==================== キー入力 ====================
 const keys = {};
@@ -275,28 +603,21 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 // タッチ操作
 const touchState = { up: false, down: false, left: false, right: false, space: false, shift: false };
-
 document.querySelectorAll('.dpad-btn, .action-btn').forEach(btn => {
   const key = btn.dataset.key;
-  
   const activate = (e) => { e.preventDefault(); touchState[key] = true; };
   const deactivate = (e) => { e.preventDefault(); touchState[key] = false; };
-  
   btn.addEventListener('touchstart', activate, { passive: false });
   btn.addEventListener('touchend', deactivate);
   btn.addEventListener('touchcancel', deactivate);
-  btn.addEventListener('mousedown', activate);
-  btn.addEventListener('mouseup', deactivate);
 });
 
 // ==================== ゲーム状態 ====================
-let gameState = 'menu'; // menu, countdown, racing, finished
+let gameState = 'menu';
 let gameTime = 0;
-let lastTime = 0;
 const COUNTDOWN_NUMS = ['3', '2', '1', 'GO!'];
 let countdownIdx = 0;
 
-// ==================== ゲーム開始 ====================
 function startGame() {
   document.getElementById('startScreen').style.display = 'none';
   gameState = 'countdown';
@@ -316,31 +637,11 @@ function startGame() {
         cdEl.style.display = 'none';
         gameState = 'racing';
         document.getElementById('hud').style.display = 'flex';
-        lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
+        animate();
       }, 500);
     }
   }
   showCountdown();
-}
-
-// ==================== ゲームループ ====================
-function gameLoop(timestamp) {
-  if (gameState !== 'racing') return;
-  
-  const dt = Math.min((timestamp - lastTime) / 16.67, 3); // 60fps基準、最大3倍
-  lastTime = timestamp;
-  gameTime += dt / 60;
-  
-  updatePlayer(dt);
-  updateAI(dt);
-  checkCollisions();
-  updateParticles(dt);
-  
-  render();
-  updateHUD();
-  
-  requestAnimationFrame(gameLoop);
 }
 
 // ==================== プレイヤー更新 ====================
@@ -351,9 +652,7 @@ function updatePlayer(dt) {
   const isDown = keys['arrowdown'] || keys['s'] || touchState.down;
   const isLeft = keys['arrowleft'] || keys['a'] || touchState.left;
   const isRight = keys['arrowright'] || keys['d'] || touchState.right;
-  const isBoost = keys[' '] || keys['shift'] || touchState.space || touchState.shift;
   
-  // アクセラレーション
   if (isUp) {
     let spd = player.maxSpeed;
     if (player.boostTimer > 0) { spd *= 1.5; player.boostTimer -= dt; }
@@ -361,9 +660,8 @@ function updatePlayer(dt) {
   } else if (isDown) {
     player.speed = Math.max(player.speed - player.acceleration * 1.5 * dt, -3);
   } else {
-    // 自然減速
-    if (player.speed > 0) player.speed = Math.max(0, player.speed - player.deceleration * dt);
-    if (player.speed < 0) player.speed = Math.min(0, player.speed + player.deceleration * dt);
+    if (player.speed > 0) player.speed = Math.max(0, player.speed - 0.05 * dt);
+    if (player.speed < 0) player.speed = Math.min(0, player.speed + 0.05 * dt);
   }
   
   // コース外減速
@@ -371,52 +669,36 @@ function updatePlayer(dt) {
   const absOffset = Math.abs(player.lateralOffset);
   if (absOffset > trackWidth / 2 - 15) {
     player.speed *= Math.max(0.3, 1 - (absOffset - trackWidth/2 + 15) * 0.02);
-    // ダストパーティクル
     if (player.speed > 1 && Math.random() < 0.3) {
-      addParticle(seg.x + seg.nx * player.lateralOffset, seg.y + seg.ny * player.lateralOffset, 'dust');
+      addParticle(seg.x, 1, seg.z, 0x8B7355, 1);
     }
   }
   
-  // ステアリング（曲がり具合で減速）
+  // ステアリング
   const curveFactor = segments[player.segIdx].curve;
-  if (isLeft) {
-    player.lateralOffset -= player.turnSpeed * dt * (1 - curveFactor * 0.3);
-    player.angle = Math.max(player.angle - 2 * dt, -0.4);
-  } else if (isRight) {
-    player.lateralOffset += player.turnSpeed * dt * (1 - curveFactor * 0.3);
-    player.angle = Math.min(player.angle + 2 * dt, 0.4);
-  } else {
-    player.angle *= 0.85; // ステアリターン
-  }
+  if (isLeft) player.lateralOffset -= player.turnSpeed * dt * (1 - curveFactor * 0.3);
+  else if (isRight) player.lateralOffset += player.turnSpeed * dt * (1 - curveFactor * 0.3);
   
-  // 横方向制限
   const maxOffset = trackWidth / 2 - 10;
   if (player.lateralOffset > maxOffset) { player.lateralOffset = maxOffset; player.speed *= 0.95; }
   if (player.lateralOffset < -maxOffset) { player.lateralOffset = -maxOffset; player.speed *= 0.95; }
   
-  // 次のセグメントへ移動
+  // セグメント移動
   const moveAmount = player.speed * dt;
   player.segIdx += Math.round(moveAmount);
   
-  // ラップチェック
   if (player.segIdx >= numTrackPts) {
     player.segIdx -= numTrackPts;
     player.lap++;
-    
-    if (player.lap > player.totalLaps) {
-      finishRace();
-      return;
-    }
+    if (player.lap > player.totalLaps) { finishRace(); return; }
   } else if (player.segIdx < 0) {
     player.segIdx += numTrackPts;
     player.lap--;
   }
   
-  // パーティクル（スピード時）
+  // パーティクル
   if (player.speed > 5 && Math.random() < 0.2) {
-    const px = seg.x + seg.nx * player.lateralOffset;
-    const py = seg.y + seg.ny * player.lateralOffset;
-    addParticle(px, py, 'speed');
+    addParticle(seg.x, 1, seg.z, 0xaaaaaa, 1);
   }
   
   if (player.hitTimer > 0) player.hitTimer -= dt;
@@ -425,14 +707,11 @@ function updatePlayer(dt) {
 // ==================== AI更新 ====================
 function updateAI(dt) {
   aiCars.forEach(ai => {
-    // セグメント進行
     const speedVar = ai.speed + Math.sin(gameTime * 2 + ai.segIdx) * 1.5;
     ai.segIdx += Math.round(speedVar * dt);
-    
     if (ai.segIdx >= numTrackPts) ai.segIdx -= numTrackPts;
     if (ai.segIdx < 0) ai.segIdx += numTrackPts;
     
-    // 横位置を少し揺らす（自然な動き）
     ai.lateralOffset += Math.sin(gameTime * 1.5 + ai.segIdx * 0.05) * 2 * dt;
     ai.lateralOffset = Math.max(-trackWidth/3, Math.min(trackWidth/3, ai.lateralOffset));
   });
@@ -440,46 +719,47 @@ function updateAI(dt) {
 
 // ==================== 衝突判定 ====================
 function checkCollisions() {
-  const px = segments[player.segIdx].x + segments[player.segIdx].nx * player.lateralOffset;
-  const py = segments[player.segIdx].y + segments[player.segIdx].ny * player.lateralOffset;
+  const seg = segments[player.segIdx];
+  const px = seg.x + seg.nx * player.lateralOffset;
+  const pz = seg.z + seg.nz * player.lateralOffset;
   
   // アイテムボックス
-  itemBoxes.forEach(box => {
+  itemBoxesData.forEach(box => {
     if (!box.active) return;
-    const dx = px - box.x;
-    const dy = py - box.y;
-    if (Math.sqrt(dx*dx + dy*dy) < 30) {
+    const dx = px - box.mesh.position.x;
+    const dz = pz - box.mesh.position.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 8) {
       box.active = false;
-      box.respawnTimer = 180; // 3秒（60fps）
+      box.mesh.visible = false;
       giveItem();
     }
   });
   
   // コーン
-  cones.forEach(cone => {
+  conesData.forEach(cone => {
     if (cone.hit || player.hitTimer > 0) return;
-    const dx = px - cone.x;
-    const dy = py - cone.y;
-    if (Math.sqrt(dx*dx + dy*dy) < 25) {
+    const dx = px - cone.group.position.x;
+    const dz = pz - cone.group.position.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 5) {
       cone.hit = true;
+      cone.group.visible = false;
       player.speed *= 0.5;
       player.hitTimer = 30;
-      addParticle(cone.x, cone.y, 'hit');
+      addParticle(cone.group.position.x, 2, cone.group.position.z, 0xe74c3c, 8);
     }
   });
   
-  // AIとの衝突（近いセグメントにいる場合）
+  // AIとの衝突
   aiCars.forEach(ai => {
     const segDiff = Math.abs(player.segIdx - ai.segIdx);
     if (segDiff < 3 || segDiff > numTrackPts - 3) {
       const latDiff = Math.abs(player.lateralOffset - ai.lateralOffset);
-      if (latDiff < 40) {
-        // 衝突！両方少し弾かれる
+      if (latDiff < 8) {
         const pushDir = player.lateralOffset > ai.lateralOffset ? 1 : -1;
         player.lateralOffset += pushDir * 5;
         ai.lateralOffset -= pushDir * 3;
         player.speed *= 0.8;
-        addParticle(px, py, 'hit');
+        addParticle(px, 2, pz, 0xe74c3c, 6);
       }
     }
   });
@@ -499,336 +779,105 @@ function giveItem() {
 function useItem() {
   if (!player.item) return;
   
+  const seg = segments[player.segIdx];
+  const px = seg.x + seg.nx * player.lateralOffset;
+  const pz = seg.z + seg.nz * player.lateralOffset;
+  
   switch(player.item) {
-    case '🍌': // バナナ（後方爆発）
-      addParticle(
-        segments[player.segIdx].x + segments[player.segIdx].nx * player.lateralOffset,
-        segments[player.segIdx].y + segments[player.segIdx].ny * player.lateralOffset, 'banana'
-      );
-      // AIを遅くする
+    case '🍌':
+      addParticle(px, 1, pz, 0xf1c40f, 5);
       aiCars.forEach(ai => {
-        const segDiff = Math.abs(player.segIdx - ai.segIdx);
-        if (segDiff < 10) ai.speed *= 0.5;
+        if (Math.abs(player.segIdx - ai.segIdx) < 10) ai.speed *= 0.5;
       });
       break;
-    case '🥚': // エッグ（前方投射）
+    case '🥚':
       player.boostTimer = 60;
-      addParticle(
-        segments[player.segIdx].x + segments[player.segIdx].tx * 100,
-        segments[player.segIdx].y + segments[player.segIdx].ty * 100, 'egg'
-      );
+      addParticle(seg.x + seg.tx * 30, 2, seg.z + seg.tz * 30, 0xffffff, 8);
       break;
-    case '⭐': // スター（無敵＋加速）
+    case '⭐':
       player.boostTimer = 180;
-      player.hitTimer = -999; // 無敵
+      player.hitTimer = -999;
+      addParticle(px, 3, pz, 0xffff00, 15);
       break;
-    case '🔴': // 赤い花（前方弾）
+    case '🔴':
       aiCars.forEach(ai => {
-        const segDiff = Math.abs(player.segIdx - ai.segIdx);
-        if (segDiff < 8) { ai.speed *= 0.3; addParticle(
-          segments[ai.segIdx].x + segments[ai.segIdx].nx * ai.lateralOffset,
-          segments[ai.segIdx].y + segments[ai.segIdx].ny * ai.lateralOffset, 'hit'
-        ); }
+        if (Math.abs(player.segIdx - ai.segIdx) < 8) {
+          ai.speed *= 0.3;
+          const aiseg = segments[ai.segIdx];
+          addParticle(aiseg.x, 2, aiseg.z, 0xe74c3c, 10);
+        }
       });
       break;
-    case '🟢': // 緑の花（加速）
+    case '🟢':
       player.boostTimer = 120;
+      addParticle(px, 2, pz, 0x2ecc71, 8);
       break;
   }
   
   player.item = null;
 }
 
-// キーでアイテム使用
-window.addEventListener('keydown', e => {
-  if (e.key === 'z' || e.key === 'x') useItem();
-});
+window.addEventListener('keydown', e => { if (e.key === 'z' || e.key === 'x') useItem(); });
+document.getElementById('itemBtn').addEventListener('touchstart', (e) => { e.preventDefault(); useItem(); });
 
-// ==================== パーティクル ====================
-function addParticle(x, y, type) {
-  const count = type === 'hit' ? 10 : 5;
-  for (let i = 0; i < count; i++) {
-    player.particles.push({
-      x: x + (Math.random() - 0.5) * 20,
-      y: y + (Math.random() - 0.5) * 20,
-      vx: (Math.random() - 0.5) * 4,
-      vy: (Math.random() - 0.5) * 4,
-      life: type === 'hit' ? 30 : 15,
-      maxLife: type === 'hit' ? 30 : 15,
-      color: type === 'dust' ? '#8B7355' : type === 'speed' ? '#aaa' : 
-             type === 'banana' ? '#f1c40f' : type === 'egg' ? '#fff' : '#e74c3c',
-      size: type === 'hit' ? 4 + Math.random() * 4 : 2 + Math.random() * 2
-    });
-  }
-}
-
-function updateParticles(dt) {
-  player.particles = player.particles.filter(p => {
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.life -= dt;
-    return p.life > 0;
-  });
-  
-  // アイテムボックスリスポーン
-  itemBoxes.forEach(box => {
-    if (!box.active) {
-      box.respawnTimer -= dt;
-      if (box.respawnTimer <= 0) box.active = true;
-    }
-  });
-}
-
-// ==================== レンダリング ====================
-function render() {
-  // 背景（空）
-  ctx.fillStyle = '#87CEEB';
-  ctx.fillRect(0, 0, W, H);
-  
-  // グリッド（地面表現）
-  drawGround();
-  
-  // カメラ位置をプレイヤーに設定
+// ==================== カメラ更新 ====================
+function updateCamera() {
   const seg = segments[player.segIdx];
-  const camX = seg.x + seg.nx * player.lateralOffset;
-  const camY = seg.y + seg.ny * player.lateralOffset;
   
-  ctx.save();
-  ctx.translate(W/2, H/2);
+  // プレイヤーの3D位置
+  const px = seg.x + seg.nx * player.lateralOffset;
+  const pz = seg.z + seg.nz * player.lateralOffset;
   
-  // カメラ回転（進行方向を上に）
-  ctx.rotate(Math.atan2(-seg.tx, -seg.ty));
+  // カメラ位置（後方上空）
+  const camDist = 25;
+  const camHeight = 15;
   
-  // 相対座標に変換
-  const drawSeg = (s) => {
-    const rx = s.x - camX;
-    const ry = s.y - camY;
-    return { x: rx, y: ry };
-  };
+  const targetX = px - seg.tx * camDist;
+  const targetZ = pz - seg.tz * camDist;
   
-  // トラック描画
-  drawTrack();
+  camera.position.lerp(new THREE.Vector3(targetX, camHeight, targetZ), 0.1);
   
-  // アイテムボックス
-  itemBoxes.forEach(box => {
-    if (!box.active) return;
-    const bx = box.x - camX;
-    const by = box.y - camY;
-    
-    // 画面内チェック
-    if (Math.abs(bx) > W || Math.abs(by) > H) return;
-    
-    ctx.fillStyle = '#f39c12';
-    ctx.fillRect(bx - 8, by - 8, 16, 16);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(bx - 8, by - 8, 16, 16);
-    
-    // ? マーク
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('?', bx, by + 4);
-  });
-  
-  // コーン
-  cones.forEach(cone => {
-    const cx = cone.x - camX;
-    const cy = cone.y - camY;
-    if (Math.abs(cx) > W || Math.abs(cy) > H) return;
-    
-    ctx.fillStyle = cone.hit ? '#666' : '#e74c3c';
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 10);
-    ctx.lineTo(cx - 6, cy + 5);
-    ctx.lineTo(cx + 6, cy + 5);
-    ctx.closePath();
-    ctx.fill();
-    
-    // 白線
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(cx - 3, cy - 2, 6, 3);
-  });
-  
-  // AIカー描画
+  // プレイヤーを見つめる
+  const lookTarget = new THREE.Vector3(px + seg.tx * 10, 2, pz + seg.tz * 10);
+  camera.lookAt(lookTarget);
+}
+
+// ==================== AI位置更新 ====================
+function updateAILocations() {
   aiCars.forEach(ai => {
-    const aiseg = segments[ai.segIdx];
-    const ax = aiseg.x + aiseg.nx * ai.lateralOffset - camX;
-    const ay = aiseg.y + aiseg.ny * ai.lateralOffset - camY;
+    const s = segments[ai.segIdx];
+    const ax = s.x + s.nx * ai.lateralOffset;
+    const az = s.z + s.nz * ai.lateralOffset;
     
-    if (Math.abs(ax) > W || Math.abs(ay) > H) return;
-    
-    drawCar(ax, ay, aiseg, ai.color, ai.emoji);
+    ai.mesh.position.set(ax, 0, az);
+    ai.mesh.rotation.y = Math.atan2(s.tx, s.tz);
   });
-  
-  // プレイヤーカー描画
-  const px = seg.x + seg.nx * player.lateralOffset - camX;
-  const py = seg.y + seg.ny * player.lateralOffset - camY;
-  
-  if (player.hitTimer > 0 && player.hitTimer !== -999) {
-    ctx.globalAlpha = 0.5 + Math.sin(gameTime * 20) * 0.3;
-  }
-  drawCar(px, py, seg, '#e74c3c', '🏎️');
-  
-  // スター無敵エフェクト
-  if (player.hitTimer === -999) {
-    ctx.strokeStyle = `hsl(${gameTime * 100 % 360}, 100%, 50%)`;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(px, py, 25 + Math.sin(gameTime * 10) * 5, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  
-  ctx.globalAlpha = 1;
-  
-  // パーティクル
-  player.particles.forEach(p => {
-    const px2 = p.x - camX;
-    const py2 = p.y - camY;
-    if (Math.abs(px2) > W || Math.abs(py2) > H) return;
-    
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(px2, py2, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
-    ctx.fill();
-  });
-  ctx.globalAlpha = 1;
-  
-  ctx.restore();
 }
 
-function drawGround() {
-  // 地面のグラデーション
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#2d5a27');
-  grad.addColorStop(1, '#4a8c3f');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-}
-
-function drawTrack() {
-  // アスファルト
-  ctx.beginPath();
-  
-  // 右端
-  for (let i = 0; i < numTrackPts; i++) {
-    const s = segments[i];
-    const rx = s.x + s.nx * trackWidth/2 - W/2;
-    const ry = s.y + s.ny * trackWidth/2 - H/2;
-    if (i === 0) ctx.moveTo(rx, ry);
-    else ctx.lineTo(rx, ry);
-  }
-  
-  // 左端（逆順）
-  for (let i = numTrackPts - 1; i >= 0; i--) {
-    const s = segments[i];
-    const lx = s.x - s.nx * trackWidth/2 - W/2;
-    const ly = s.y - s.ny * trackWidth/2 - H/2;
-    ctx.lineTo(lx, ly);
-  }
-  
-  ctx.closePath();
-  ctx.fillStyle = '#555';
-  ctx.fill();
-  
-  // 縁石（赤白）
-  for (let i = 0; i < numTrackPts; i++) {
-    const s = segments[i];
-    const isRed = Math.floor(i / 3) % 2 === 0;
-    
-    [1, -1].forEach(side => {
-      const cx = s.x + s.nx * (trackWidth/2 * side) - W/2;
-      const cy = s.y + s.ny * (trackWidth/2 * side) - H/2;
-      
-      ctx.fillStyle = isRed ? '#e74c3c' : '#fff';
-      ctx.fillRect(cx - 5, cy - 5, 10, 10);
-    });
-  }
-  
-  // 中央線（点線）
-  ctx.setLineDash([20, 20]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i < numTrackPts; i++) {
-    const s = segments[i];
-    if (i === 0) ctx.moveTo(s.x - W/2, s.y - H/2);
-    else ctx.lineTo(s.x - W/2, s.y - H/2);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.setLineDash([]);
-  
-  // スタート/ゴールライン
-  const startSeg = segments[0];
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(
-    startSeg.x + startSeg.nx * trackWidth/2 - W/2,
-    startSeg.y + startSeg.ny * trackWidth/2 - H/2
-  );
-  ctx.lineTo(
-    startSeg.x - startSeg.nx * trackWidth/2 - W/2,
-    startSeg.y - startSeg.ny * trackWidth/2 - H/2
-  );
-  ctx.stroke();
-  
-  // チェッカーパターン
-  const sqSize = 10;
-  for (let r = 0; r < 2; r++) {
-    for (let c = 0; c < Math.floor(trackWidth / sqSize); c++) {
-      if ((r + c) % 2 === 0) {
-        const t = c * sqSize - trackWidth/2 + sqSize/2;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(
-          startSeg.x + startSeg.nx * t - W/2 - sqSize/2,
-          startSeg.y + startSeg.ny * t - H/2 - sqSize/2,
-          sqSize, sqSize
-        );
+// ==================== アイテムボックスアニメーション ====================
+function updateItemBoxes(time) {
+  itemBoxesData.forEach(box => {
+    if (box.active && box.mesh.visible) {
+      box.mesh.position.y = 1.5 + Math.sin(time * 3) * 0.5;
+      box.mesh.rotation.y += 0.02;
+    } else if (!box.active) {
+      box.respawnTimer -= 1/60;
+      if (box.respawnTimer <= 0) {
+        box.active = true;
+        box.mesh.visible = true;
       }
     }
-  }
+  });
 }
 
-function drawCar(x, y, seg, color, emoji) {
-  ctx.save();
-  ctx.translate(x, y);
+// ==================== プレイヤー位置更新 ====================
+function updatePlayerLocation() {
+  const seg = segments[player.segIdx];
+  const px = seg.x + seg.nx * player.lateralOffset;
+  const pz = seg.z + seg.nz * player.lateralOffset;
   
-  // カースタイル（シンプル）
-  const carW = 16;
-  const carH = 28;
-  
-  // シャドウ
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.beginPath();
-  ctx.ellipse(2, 4, carW/2 + 2, carH/2 - 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // ボディ
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(-carW/2, -carH/2, carW, carH, 5);
-  ctx.fill();
-  
-  // ウィンドウ
-  ctx.fillStyle = '#87CEEB';
-  ctx.fillRect(-carW/4, -carH/4, carW/2, carH/6);
-  
-  // タイヤ
-  ctx.fillStyle = '#333';
-  const tirePositions = [[-carW/2-1, -carH/3], [carW/2+1, -carH/3], [-carW/2-1, carH/4], [carW/2+1, carH/4]];
-  tirePositions.forEach(([tx, ty]) => {
-    ctx.fillRect(tx - 2, ty - 3, 4, 6);
-  });
-  
-  // Emoji
-  ctx.font = '18px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(emoji, 0, 5);
-  
-  ctx.restore();
+  playerCar.position.set(px, 0, pz);
+  playerCar.rotation.y = Math.atan2(seg.tx, seg.tz);
 }
 
 // ==================== HUD更新 ====================
@@ -839,11 +888,8 @@ function updateHUD() {
   const secs = Math.floor(gameTime % 60);
   document.getElementById('timeDisplay').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
   
-  // 順位計算
   let pos = 1;
-  aiCars.forEach(ai => {
-    if (ai.segIdx > player.segIdx) pos++;
-  });
+  aiCars.forEach(ai => { if (ai.segIdx > player.segIdx) pos++; });
   const ordinals = ['st', 'nd', 'rd'];
   document.getElementById('posDisplay').textContent = `${pos}${ordinals[pos-1] || 'th'}`;
   
@@ -857,9 +903,7 @@ function finishRace() {
   player.finishTime = gameTime;
   
   let pos = 1;
-  aiCars.forEach(ai => {
-    if (ai.segIdx > player.segIdx) pos++;
-  });
+  aiCars.forEach(ai => { if (ai.segIdx > player.segIdx) pos++; });
   
   const ordinals = ['🥇', '🥈', '🥉'];
   document.getElementById('goalTitle').textContent = `${ordinals[pos-1] || pos + '位'} ゴール！`;
@@ -868,34 +912,36 @@ function finishRace() {
   const secs = Math.floor(player.finishTime % 60);
   document.getElementById('goalTime').textContent = `タイム: ${mins}:${secs.toString().padStart(2, '0')}`;
   
-  setTimeout(() => {
-    document.getElementById('goalScreen').style.display = 'flex';
-  }, 1000);
+  setTimeout(() => { document.getElementById('goalScreen').style.display = 'flex'; }, 1000);
 }
 
-// ==================== roundRect polyfill ====================
-if (!CanvasRenderingContext2D.prototype.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-    if (typeof r === 'number') r = [r];
-    const rad = r[0] || 0;
-    this.moveTo(x + rad, y);
-    this.lineTo(x + w - rad, y);
-    this.quadraticCurveTo(x + w, y, x + w, y + rad);
-    this.lineTo(x + w, y + h - rad);
-    this.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
-    this.lineTo(x + rad, y + h);
-    this.quadraticCurveTo(x, y + h, x, y + h - rad);
-    this.lineTo(x, y + rad);
-    this.quadraticCurveTo(x, y, x + rad, y);
-    this.closePath();
-  };
+// ==================== メインループ ====================
+function animate() {
+  if (gameState !== 'racing') return;
+  
+  const dt = Math.min(2, 1); // 簡略化
+  gameTime += dt / 60;
+  
+  updatePlayer(dt);
+  updateAI(dt);
+  checkCollisions();
+  updateParticles();
+  
+  updatePlayerLocation();
+  updateAILocations();
+  updateItemBoxes(gameTime);
+  updateCamera();
+  updateHUD();
+  
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
 }
 
-// ==================== タッチでアイテム使用 ====================
-document.getElementById('itemBtn').addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  useItem();
-});
+// ==================== タッチ操作検出 ====================
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  document.getElementById('controls').style.display = 'block';
+}
+
 </script>
 </body>
 </html>
