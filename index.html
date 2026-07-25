@@ -726,7 +726,7 @@ function updatePlayer(dt) {
     player.angle += steerAmount * speedFactor;
   }
 
-  // 位置更新（angle=0は-Z方向:画面奥）
+  // 位置更新（angle=0は+X方向、angle=π/2は-Z方向:画面奥）
   player.x += Math.cos(player.angle) * player.speed * dt;
   player.z -= Math.sin(player.angle) * player.speed * dt;
 
@@ -847,9 +847,10 @@ function updateItemBoxes(time) {
 function updatePlayerLocation() {
   // プレイヤー位置更新 - Three.js座標系に正確に合わせる
   playerCar.position.set(player.x, player.y, player.z);
+  // ExtrudeGeometryの前面（押し出し先の面）はローカル+Z方向を向く
+  // rotation.x=-π/2で世界座標の+Xを向き、rotation.y=0でangle=0(+X進行)と一致
   // movement: x+=cos(angle)*speed*dt, z-=sin(angle)*speed*dt → angle=0は+X方向、angle=π/2は-Z方向(画面奥)
-  // ExtrudeGeometryの前面が進行方向を向くように補正
-  playerCar.rotation.y = player.angle - Math.PI / 2;
+  playerCar.rotation.y = player.angle;
 
   // ステアリングの視覚的フィードバック（車体を少し傾ける）
   const tiltAngle = steerInput * 0.15;
