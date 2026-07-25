@@ -719,7 +719,7 @@ function updatePlayer(dt) {
   }
 
   // ステアリング（角度を回転）- Three.js座標系に合わせる
-  const steerAmount = -steerTarget * player.maxSteerSpeed * dt;
+  const steerAmount = steerTarget * player.maxSteerSpeed * dt;
   if (Math.abs(player.speed) > 0.1) {
     const speedFactor = Math.min(1, Math.abs(player.speed) / 1);
     // Three.js: Y軸回転は反時計回り。角度を正しく適用
