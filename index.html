@@ -616,9 +616,9 @@ function updatePlayer(dt) {
     player.angle += steerAmount * speedFactor;
   }
   
-  // 位置更新（角度方向に進む）
+  // 位置更新（角度方向に進む）- zを反転してThree.js座標系に合わせる
   player.x += Math.cos(player.angle) * player.speed * dt;
-  player.z += Math.sin(player.angle) * player.speed * dt;
+  player.z -= Math.sin(player.angle) * player.speed * dt;
   
   // パーティクル
   if (player.speed > 2 && Math.random() < 0.15) {
@@ -650,7 +650,7 @@ function updateAI(dt) {
     
     const spd = ai.speed + Math.sin(gameTime * 2 + ai.x * 0.01) * 0.8;
     ai.x += Math.cos(ai.angle) * spd * dt;
-    ai.z += Math.sin(ai.angle) * spd * dt;
+    ai.z -= Math.sin(ai.angle) * spd * dt;
     
     // 遠くに行きすぎたら引き返す（トラック内に留める）
     const distFromCenter = Math.sqrt(ai.x * ai.x + ai.z * ai.z);
@@ -711,7 +711,7 @@ function updateCamera() {
     camHeight,
     player.z - Math.sin(player.angle) * camDist
   );
-  camera.lookAt(player.x + Math.cos(player.angle) * 15, 2, player.z + Math.sin(player.angle) * 15);
+  camera.lookAt(player.x + Math.cos(player.angle) * 15, 2, player.z - Math.sin(player.angle) * 15);
 }
 
 // ==================== AI位置更新 ====================
