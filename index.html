@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🏎️ 3D ブラウザ版マリオカート</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
+canvas { display: block; }
+
+#startScreen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(135deg, #e74c3c, #f39c12, #2ecc71, #3498db);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 100; animation: bgShift 5s ease infinite; background-size: 400% 400%;
+}
+@keyframes bgShift {
+  0%,100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+#startScreen h1 { font-size: clamp(2rem, 8vw, 4.5rem); color: #fff; text-shadow: 3px 3px 0 rgba(0,0,0,0.3); margin-bottom: 5px; }
+#startScreen .subtitle { font-size: clamp(0.8rem, 3vw, 1.2rem); color: rgba(255,255,255,0.9); margin-bottom: 30px; }
+#startBtn {
+  padding: 15px 50px; font-size: clamp(1.2rem, 4vw, 1.8rem); border: none; border-radius: 50px;
+  background: #fff; color: #e74c3c; font-weight: bold; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: transform 0.2s;
+}
+#startBtn:hover { transform: scale(1.1); }
+.kart-emoji { font-size: clamp(3rem, 10vw, 5rem); margin-bottom: 20px; animation: bounce 1s ease infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+
+#controls { position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px; display: none; z-index: 50; pointer-events: none; }
+.ctrl-row { display: flex; justify-content: space-between; align-items: center; pointer-events: auto; }
+
+.steer-area {
+  width: clamp(140px, 30vw, 200px); height: clamp(140px, 30vw, 200px);
+  position: relative; border-radius: 50%;
+  background: rgba(255,255,255,0.08); border: 3px solid rgba(255,255,255,0.2);
+}
+.steer-knob {
+  position: absolute; width: clamp(40px, 10vw, 60px); height: clamp(40px, 10vw, 60px);
+  border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #ccc);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.1);
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.steer-knob::after {
+  content: ''; position: absolute; width: 4px; height: 12px; background: #e74c3c;
+  top: 50%; left: 50%; transform: translate(-50%, -60%); border-radius: 2px;
+}
+
+.action-area { display: flex; gap: clamp(10px, 3vw, 20px); align-items: center; }
+.action-btn {
+  width: clamp(70px, 18vw, 100px); height: clamp(70px, 18vw, 100px); border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.4); color: #fff; font-size: clamp(12px, 3vw, 16px);
+  font-weight: bold; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  backdrop-filter: blur(3px); transition: transform 0.1s;
+}
+.action-btn:active { transform: scale(0.92); }
+#accelBtn { background: rgba(46,204,113,0.5); border-color: #2ecc71; font-size: clamp(14px, 3.5vw, 18px); }
+#brakeBtn { background: rgba(231,76,60,0.4); border-color: #e74c3c; }
+#itemBtn { background: rgba(243,156,18,0.4); border-color: #f39c12; width: clamp(55px, 14vw, 70px); height: clamp(55px, 14vw, 70px); font-size: clamp(10px, 2.5vw, 13px); }
+
+#hud { position: fixed; top: 10px; left: 10px; right: 10px; display: none; z-index: 50;
+  justify-content: space-between; align-items: flex-start; pointer-events: none; }
+.hud-box { background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px; border-radius: 10px;
+  font-size: clamp(0.7rem, 2.5vw, 0.9rem); backdrop-filter: blur(5px); }
+.hud-box .label { opacity: 0.7; }
+.hud-box .value { font-weight: bold; font-size: 1.3em; }
+
+#itemDisplay { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.7); color: #f39c12; padding: 15px 30px; border-radius: 15px;
+  font-size: clamp(1rem, 4vw, 1.5rem); font-weight: bold; display: none; z-index: 60;
+  text-align: center; border: 2px solid #f39c12; }
+
+#countdown { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: clamp(4rem, 15vw, 8rem); color: #fff; font-weight: bold;
+  text-shadow: 0 0 30px rgba(255,255,255,0.5); display: none; z-index: 70; }
+
+#goalScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85); display: none; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 200; color: #fff; }
+#goalScreen h1 { font-size: clamp(2rem, 8vw, 3.5rem); margin-bottom: 10px; }
+#goalScreen .time { font-size: clamp(1rem, 4vw, 1.5rem); opacity: 0.8; margin-bottom: 30px; }
+#restartBtn { padding: 12px 40px; font-size: clamp(1rem, 3vw, 1.3rem); border: none; border-radius: 50px; background: #f39c12; color: #fff; font-weight: bold; cursor: pointer; }
+
+@media (min-width: 768px) { .action-btn { width: 100px; height: 100px; } }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <div class="kart-emoji">🏎️💨</div>
+  <h1>MARIO KART 3D</h1>
+  <p class="subtitle">Three.js 3D レーシングゲーム - 自由走行モード</p>
+  <button id="startBtn" onclick="startGame()">🏁 スタート！</button>
+  <p style="color:rgba(255,255,255,0.6); margin-top:20px; font-size:clamp(0.7rem,2vw,0.9rem)">
+    PC: WASD/矢印キー | スマホ: ハンドル＋アクセル
+  </p>
+</div>
+
+<div id="hud">
+  <div class="hud-box"><span class="label">LAP</span><br><span class="value" id="lapDisplay">1/3</span></div>
+  <div class="hud-box"><span class="label">TIME</span><br><span class="value" id="timeDisplay">0:00</span></div>
+  <div class="hud-box"><span class="label">POS</span><br><span class="value" id="posDisplay">1st</span></div>
+  <div class="hud-box"><span class="label">SPEED</span><br><span class="value" id="speedDisplay">0 km/h</span></div>
+</div>
+
+<div id="itemDisplay"></div>
+<div id="countdown"></div>
+
+<div id="controls">
+  <div class="ctrl-row">
+    <div class="steer-area" id="steerArea"><div class="steer-knob" id="steerKnob"></div></div>
+    <div class="action-area">
+      <div class="action-btn" id="brakeBtn">🛑</div>
+      <div class="action-btn" id="accelBtn">GO!</div>
+      <div class="action-btn" id="itemBtn">ITEM</div>
+    </div>
+  </div>
+</div>
+
+<div id="goalScreen">
+  <h1 id="goalTitle">🏆 ゴール！</h1>
+  <p class="time" id="goalTime"></p>
+  <button id="restartBtn" onclick="location.reload()">もう一度遊ぶ 🔄</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+// ==================== Three.js セットアップ ====================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.00035);
+
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 1, 5000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// 照明強化
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3a7d3a, 0.6);
+scene.add(hemiLight);
+
+const dirLight = new THREE.DirectionalLight(0xfff5e0, 1.4);
+dirLight.position.set(400, 900, 200);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 10;
+dirLight.shadow.camera.far = 2500;
+dirLight.shadow.camera.left = -700;
+dirLight.shadow.camera.right = 700;
+dirLight.shadow.camera.top = 700;
+dirLight.shadow.camera.bottom = -700;
+scene.add(dirLight);
+
+// サブライト（陰を柔らかく）
+const fillLight = new THREE.DirectionalLight(0xc8d8ff, 0.3);
+fillLight.position.set(-300, 400, -200);
+scene.add(fillLight);
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', onResize);
+
+// ==================== トラック定義 ====================
+const trackPoints = [];
+const numTrackPts = 200;
+for (let i = 0; i < numTrackPts; i++) {
+  const t = (i / numTrackPts) * Math.PI * 2;
+  const rx = 1200 + Math.sin(t * 3) * 350;
+  const rz = 800 + Math.cos(t * 2) * 250;
+  trackPoints.push({ x: Math.cos(t) * rx, z: Math.sin(t) * rz });
+}
+
+const segments = [];
+for (let i = 0; i < numTrackPts; i++) {
+  const curr = trackPoints[i];
+  const next = trackPoints[(i + 1) % numTrackPts];
+  const prev = trackPoints[(i - 1 + numTrackPts) % numTrackPts];
+  let dx = next.x - prev.x, dz = next.z - prev.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  dx /= len; dz /= len;
+  segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx });
+}
+
+// ==================== 地面（グリッド付き） ====================
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(6000, 6000),
+  new THREE.MeshLambertMaterial({ color: 0x4a8c3f })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// グリッドライン（地面に）
+const gridHelper = new THREE.GridHelper(6000, 120, 0x3a7d2f, 0x3a7d2f);
+gridHelper.position.y = -0.5;
+scene.add(gridHelper);
+
+// ==================== 道路メッシュ ====================
+function createRoadMesh() {
+  const hw = 40;
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i], ns = segments[(i + 1) % numTrackPts];
+    const geo = new THREE.BufferGeometry();
+    const v = new Float32Array([
+      s.x - s.nx * hw, 0.1, s.z - s.nz * hw,
+      s.x + s.nx * hw, 0.1, s.z + s.nz * hw,
+      ns.x - ns.nx * hw, 0.1, ns.z - ns.nz * hw,
+      ns.x + ns.nx * hw, 0.1, ns.z + ns.nz * hw,
+    ]);
+    geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
+    geo.setIndex([0,2,1,1,2,3]);
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x555555 }));
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
+}
+
+// ==================== 縁石 ====================
+function createCurbMesh() {
+  const hw = 43;
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i], ns = segments[(i + 1) % numTrackPts];
+    [1, -1].forEach(side => {
+      const isRed = Math.floor(i / 3) % 2 === 0;
+      const geo = new THREE.BoxGeometry(8, 1.5, 6);
+      const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: isRed ? 0xe74c3c : 0xffffff }));
+      mesh.position.set(s.x + s.nx * hw * side, 0.75, s.z + s.nz * hw * side);
+      mesh.lookAt(ns.x + ns.nx * hw * side, 0.75, ns.z + ns.nz * hw * side);
+      mesh.castShadow = true;
+      scene.add(mesh);
+    });
+  }
+}
+
+// ==================== スタート/ゴールライン ====================
+function createStartLine() {
+  const s = segments[0];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < Math.floor(80 / 12); c++) {
+      if ((r + c) % 2 === 0) {
+        const t = c * 12 - 40 + 6;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(s.x + s.nx * t, 0.15, s.z + s.nz * t);
+        scene.add(mesh);
+      }
+    }
+  }
+}
+
+// ==================== 中央線（点線） ====================
+function createCenterLine() {
+  for (let i = 0; i < numTrackPts; i += 4) {
+    const s = segments[i];
+    const geo = new THREE.PlaneGeometry(3, 15);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(s.x, 0.16, s.z);
+    scene.add(mesh);
+  }
+}
+
+// ==================== 木々（強化版） ====================
+function createTrees() {
+  for (let i = 0; i < 80; i++) {
+    const segIdx = Math.floor(Math.random() * numTrackPts);
+    const s = segments[segIdx];
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const dist = 60 + Math.random() * 400;
+    const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
+
+    // 幹
+    const trunkH = 12 + Math.random() * 8;
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 3, trunkH, 6),
+      new THREE.MeshLambertMaterial({ color: 0x8B4513 })
+    );
+    trunk.position.set(tx, trunkH / 2 - 1, tz);
+    trunk.castShadow = true;
+    scene.add(trunk);
+
+    // 葉（複数レイヤー）
+    const leafColors = [0x2d5a27, 0x3a7d42, 0x228B22];
+    for (let j = 0; j < 3; j++) {
+      const r = 6 + Math.random() * 6 - j * 1.5;
+      const h = 8 + Math.random() * 4;
+      const leaves = new THREE.Mesh(
+        new THREE.ConeGeometry(r, h, 6),
+        new THREE.MeshLambertMaterial({ color: leafColors[j % 3] })
+      );
+      leaves.position.set(tx, trunkH - 2 + j * 4, tz);
+      leaves.castShadow = true;
+      scene.add(leaves);
+    }
+  }
+}
+
+// ==================== 装飾：岩 ====================
+function createRocks() {
+  for (let i = 0; i < 30; i++) {
+    const segIdx = Math.floor(Math.random() * numTrackPts);
+    const s = segments[segIdx];
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const dist = trackPoints.length > 0 ? (60 + Math.random() * 300) : 200;
+    const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
+
+    const rockGeo = new THREE.DodecahedronGeometry(2 + Math.random() * 4);
+    const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
+    const rock = new THREE.Mesh(rockGeo, rockMat);
+    rock.position.set(tx, 1, tz);
+    rock.rotation.set(Math.random(), Math.random(), Math.random());
+    rock.castShadow = true;
+    scene.add(rock);
+  }
+}
+
+// ==================== 高品質カー作成関数 ====================
+function createCar(color, emoji) {
+  const group = new THREE.Group();
+
+  // シャドウ
+  const shadowGeo = new THREE.PlaneGeometry(5, 8);
+  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2 });
+  const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.05;
+  group.add(shadow);
+
+  // メインボディ（前面が細く、後面が広いレーシングカー形状）
+  const bodyShape = new THREE.Shape();
+  bodyShape.moveTo(-1.8, -3);
+  bodyShape.lineTo(1.8, -3);
+  bodyShape.lineTo(2, -1.5);
+  bodyShape.quadraticCurveTo(2.2, 0, 1.8, 1);
+  bodyShape.lineTo(1.5, 2.5);
+  bodyShape.quadraticCurveTo(1.3, 3, 0, 3.2);
+  bodyShape.quadraticCurveTo(-1.3, 3, -1.5, 2.5);
+  bodyShape.lineTo(-1.8, 1);
+  bodyShape.quadraticCurveTo(-2.2, 0, -2, -1.5);
+  bodyShape.closePath();
+
+  const extrudeSettings = { depth: 3.5, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 2 };
+  const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+  const bodyMat = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
+  const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+  bodyMesh.rotation.x = -Math.PI / 2;
+  bodyMesh.position.set(0, 1.2, -1.75);
+  bodyMesh.castShadow = true;
+  group.add(bodyMesh);
+
+  // コクピット（キャノピー）
+  const cockpitGeo = new THREE.SphereGeometry(1.3, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cockpitMat = new THREE.MeshPhongMaterial({ color: 0x444444, shininess: 100 });
+  const cockpit = new THREE.Mesh(cockpitGeo, cockpitMat);
+  cockpit.scale.set(1, 0.6, 0.7);
+  cockpit.position.set(0, 2.5, -0.3);
+  cockpit.castShadow = true;
+  group.add(cockpit);
+
+  // ウィンドウ（透明）
+  const winGeo = new THREE.SphereGeometry(1.1, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  const winMat = new THREE.MeshPhongMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.4, shininess: 200 });
+  const winMesh = new THREE.Mesh(winGeo, winMat);
+  winMesh.scale.set(0.95, 0.55, 0.65);
+  winMesh.position.set(0, 2.55, -0.3);
+  group.add(winMesh);
+
+  // フロントウィング（空力パーツ）
+  const fwGeo = new THREE.BoxGeometry(4, 0.3, 1.2);
+  const fwMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
+  const frontWing = new THREE.Mesh(fwGeo, fwMat);
+  frontWing.position.set(0, 0.5, -3.2);
+  frontWing.castShadow = true;
+  group.add(frontWing);
+
+  // リアウィング（大型スポイラー）
+  const rwSupport1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.5, 0.3), fwMat);
+  rwSupport1.position.set(-1.2, 2.8, 2.5);
+  group.add(rwSupport1);
+  const rwSupport2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.5, 0.3), fwMat);
+  rwSupport2.position.set(1.2, 2.8, 2.5);
+  group.add(rwSupport2);
+
+  const rwGeo = new THREE.BoxGeometry(4.5, 0.3, 1);
+  const rearWing = new THREE.Mesh(rwGeo, fwMat);
+  rearWing.position.set(0, 3.5, 2.8);
+  rearWing.castShadow = true;
+  group.add(rearWing);
+
+  // タイヤ（4つ）- よりリアルな形状
+  const tireGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.7, 12);
+  const tireMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+
+  [[-2, 0.85, -2.2], [2, 0.85, -2.2], [-2, 0.85, 2.2], [2, 0.85, 2.2]].forEach(([x,y,z]) => {
+    const tire = new THREE.Mesh(tireGeo, tireMat);
+    tire.rotation.z = Math.PI / 2;
+    tire.position.set(x, y, z);
+    tire.castShadow = true;
+    group.add(tire);
+
+    // ホイールリム（銀色）
+    const rimGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.72, 8);
+    const rimMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 150 });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.z = Math.PI / 2;
+    rim.position.set(x, y, z);
+    group.add(rim);
+  });
+
+  // ヘッドライト（前）- 明るい黄色
+  const hlGeo = new THREE.SphereGeometry(0.35, 8, 6);
+  const hlMat = new THREE.MeshPhongMaterial({ color: 0xffffcc, emissive: 0xffffaa, emissiveIntensity: 0.5 });
+  [-1.2, 1.2].forEach(x => {
+    const hl = new THREE.Mesh(hlGeo, hlMat);
+    hl.position.set(x, 1.3, -3.1);
+    group.add(hl);
+  });
+
+  // テールライト（後）- 赤く光る
+  const tlGeo = new THREE.SphereGeometry(0.3, 8, 6);
+  const tlMat = new THREE.MeshPhongMaterial({ color: 0xff2200, emissive: 0xff0000, emissiveIntensity: 0.4 });
+  [-1.2, 1.2].forEach(x => {
+    const tl = new THREE.Mesh(tlGeo, tlMat);
+    tl.position.set(x, 1.3, 3.1);
+    group.add(tl);
+  });
+
+  // Emojiスプライト（キャラクター表示）
+  const canvas = document.createElement('canvas');
+  canvas.width = 64; canvas.height = 64;
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.font = '48px sans-serif'; ctx2d.textAlign = 'center';
+  ctx2d.fillText(emoji, 32, 50);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+  sprite.position.set(0, 5.5, 0);
+  sprite.scale.set(2.5, 2.5, 1);
+  group.add(sprite);
+
+  return group;
+}
+
+// ==================== アイテムボックス（強化版） ====================
+function createItemBox(x, z) {
+  const geo = new THREE.BoxGeometry(3, 3, 3);
+  // 各面に異なるテクスチャ
+  const canvas = document.createElement('canvas');
+  canvas.width = 64; canvas.height = 64;
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.fillStyle = '#f39c12'; ctx2d.fillRect(0, 0, 64, 64);
+  ctx2d.strokeStyle = '#fff'; ctx2d.lineWidth = 4; ctx2d.strokeRect(4, 4, 56, 56);
+  ctx2d.fillStyle = '#fff'; ctx2d.font = 'bold 36px sans-serif'; ctx2d.textAlign = 'center';
+  ctx2d.fillText('?', 32, 48);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.MeshPhongMaterial({ map: tex, shininess: 50 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, 1.5, z);
+  mesh.castShadow = true;
+  scene.add(mesh);
+
+  // 光るエフェクト（ポイントライト）
+  const light = new THREE.PointLight(0xf39c12, 0.5, 15);
+  light.position.set(x, 3, z);
+  scene.add(light);
+
+  return { mesh, active: true, light };
+}
+
+// ==================== コーン（強化版） ====================
+function createCone(x, z) {
+  const group = new THREE.Group();
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5, 4, 8), new THREE.MeshPhongMaterial({ color: 0xe74c3c }));
+  cone.position.y = 2; cone.castShadow = true; group.add(cone);
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.5, 8), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+  stripe.position.y = 2; group.add(stripe);
+  group.position.set(x, 0, z); scene.add(group);
+  return { group, hit: false };
+}
+
+// ==================== ゲームオブジェクト生成 ====================
+const itemBoxesData = [];
+for (let i = 0; i < 8; i++) {
+  const segIdx = Math.floor((i / 8) * numTrackPts);
+  const s = segments[segIdx];
+  const offset = (Math.random() - 0.5) * 60;
+  itemBoxesData.push(createItemBox(s.x + s.nx * offset, s.z + s.nz * offset));
+}
+
+const conesData = [];
+for (let i = 0; i < 12; i++) {
+  const segIdx = Math.floor(Math.random() * numTrackPts);
+  const s = segments[segIdx];
+  const offset = (Math.random() - 0.5) * 60;
+  conesData.push(createCone(s.x + s.nx * offset, s.z + s.nz * offset));
+}
+
+createRoadMesh(); createCurbMesh(); createStartLine(); createCenterLine(); createTrees(); createRocks();
+
+// ==================== プレイヤー（自由走行） ====================
+const playerCar = createCar(0xe74c3c, '🏎️');
+scene.add(playerCar);
+
+const player = {
+  x: trackPoints[10].x, z: trackPoints[10].z,
+  y: 0,
+  angle: Math.atan2(segments[10].tx, segments[10].tz),
+  speed: 0,
+  maxSpeed: 3.5,
+  acceleration: 0.04,
+  brakeForce: 0.08,
+  friction: 0.015,
+  steerAngle: 0,
+  maxSteerSpeed: 0.04,
+  lap: 1, totalLaps: 3,
+  finished: false, finishTime: 0,
+  item: null, boostTimer: 0, hitTimer: 0,
+};
+
+// ==================== AIカー ====================
+const aiCars = [];
+const aiConfigs = [
+  { x: trackPoints[5].x, z: trackPoints[5].z, angle: Math.atan2(segments[5].tx, segments[5].tz), speed: 2.0, color: 0x9b59b6, emoji: '👑' },
+  { x: trackPoints[15].x, z: trackPoints[15].z, angle: Math.atan2(segments[15].tx, segments[15].tz), speed: 2.2, color: 0x3498db, emoji: '🍄' },
+  { x: trackPoints[8].x, z: trackPoints[8].z, angle: Math.atan2(segments[8].tx, segments[8].tz), speed: 2.1, color: 0x2ecc71, emoji: '🟢' }
+];
+
+aiConfigs.forEach(cfg => {
+  const car = createCar(cfg.color, cfg.emoji);
+  scene.add(car);
+  aiCars.push({ ...cfg, mesh: car });
+});
+
+// ==================== パーティクルシステム ====================
+const MAX_PARTICLES = 300;
+const pPos = new Float32Array(MAX_PARTICLES * 3);
+const pCol = new Float32Array(MAX_PARTICLES * 4);
+const pSize = new Float32Array(MAX_PARTICLES);
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+particleGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 4));
+particleGeo.setAttribute('size', new THREE.BufferAttribute(pSize, 1));
+const particlesObj = new THREE.Points(particleGeo, new THREE.PointsMaterial({ size: 2.5, vertexColors: true, transparent: true, opacity: 0.8 }));
+scene.add(particlesObj);
+
+let activeParticles = [];
+
+function addParticle(x, y, z, color, count) {
+  for (let i = 0; i < count && activeParticles.length < MAX_PARTICLES; i++) {
+    activeParticles.push({
+      x: x + (Math.random() - 0.5) * 10, y: y + Math.random() * 3, z: z + (Math.random() - 0.5) * 10,
+      vx: (Math.random() - 0.5) * 6, vy: Math.random() * 4, vz: (Math.random() - 0.5) * 6,
+      life: 30 + Math.random() * 20, maxLife: 50,
+      r: (color >> 16 & 255) / 255, g: ((color >> 8) & 255) / 255, b: (color & 255) / 255
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = activeParticles.length - 1; i >= 0; i--) {
+    const p = activeParticles[i];
+    p.x += p.vx * 0.5; p.y += p.vy * 0.3; p.z += p.vz * 0.5; p.vy -= 0.1; p.life--;
+    if (p.life <= 0) { activeParticles.splice(i, 1); continue; }
+    pPos[i*3] = p.x; pPos[i*3+1] = p.y; pPos[i*3+2] = p.z;
+    pCol[i*4] = p.r; pCol[i*4+1] = p.g; pCol[i*4+2] = p.b; pCol[i*4+3] = p.life / p.maxLife;
+    pSize[i] = (p.life / p.maxLife) * 3.5;
+  }
+  for (let i = activeParticles.length; i < MAX_PARTICLES; i++) {
+    pPos[i*3+1] = -100; pCol[i*4+3] = 0;
+  }
+  particleGeo.attributes.position.needsUpdate = true;
+  particleGeo.attributes.color.needsUpdate = true;
+}
+
+// ==================== キー入力 ====================
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// ==================== タッチ操作：ハンドル（左側） ====================
+let steerInput = 0;
+const steerArea = document.getElementById('steerArea');
+const steerKnob = document.getElementById('steerKnob');
+let steerDragging = false;
+let steerCenterX, steerCenterY;
+
+function getSteerCenter() {
+  const rect = steerArea.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+steerKnob.addEventListener('touchstart', e => {
+  e.preventDefault(); steerDragging = true;
+  const c = getSteerCenter(); steerCenterX = c.x; steerCenterY = c.y;
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  if (!steerDragging) return;
+  const touch = e.touches[0];
+  const rect = steerArea.getBoundingClientRect();
+  const halfW = rect.width / 2 - 30;
+  let dx = (touch.clientX - steerCenterX);
+  let dy = (touch.clientY - steerCenterY);
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
+  steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  steerInput = Math.max(-1, Math.min(1, dx / halfW));
+}, { passive: true });
+
+document.addEventListener('touchend', () => {
+  if (steerDragging) {
+    steerDragging = false;
+    steerKnob.style.transform = 'translate(-50%, -50%)';
+    steerInput = 0;
+  }
+});
+
+// ==================== タッチ操作：アクセル・ブレーキ（右側） ====================
+let accelInput = false, brakeInput = false;
+document.getElementById('accelBtn').addEventListener('touchstart', e => { e.preventDefault(); accelInput = true; }, { passive: false });
+document.getElementById('accelBtn').addEventListener('touchend', () => { accelInput = false; });
+document.getElementById('brakeBtn').addEventListener('touchstart', e => { e.preventDefault(); brakeInput = true; }, { passive: false });
+document.getElementById('brakeBtn').addEventListener('touchend', () => { brakeInput = false; });
+
+// ==================== アイテム使用 ====================
+function giveItem() {
+  const items = ['🍌', '🥚', '⭐', '🔴', '🟢'];
+  player.item = items[Math.floor(Math.random() * items.length)];
+  const el = document.getElementById('itemDisplay');
+  el.textContent = `アイテム獲得！ ${player.item}`;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 1500);
+}
+
+function useItem() {
+  if (!player.item) return;
+  switch(player.item) {
+    case '🍌':
+      aiCars.forEach(ai => { const d = Math.sqrt((ai.x-player.x)**2 + (ai.z-player.z)**2); if(d < 300) ai.speed *= 0.5; });
+      addParticle(player.x, 1, player.z, 0xf1c40f, 5); break;
+    case '🥚': player.boostTimer = 60; addParticle(player.x + Math.cos(player.angle)*30, 2, player.z - Math.sin(player.angle)*30, 0xffffff, 8); break;
+    case '⭐': player.boostTimer = 180; player.hitTimer = -999; addParticle(player.x, 3, player.z, 0xffff00, 15); break;
+    case '🔴': aiCars.forEach(ai => { const d = Math.sqrt((ai.x-player.x)**2 + (ai.z-player.z)**2); if(d < 240) { ai.speed *= 0.3; addParticle(ai.x, 2, ai.z, 0xe74c3c, 10); } }); break;
+    case '🟢': player.boostTimer = 120; addParticle(player.x, 2, player.z, 0x2ecc71, 8); break;
+  }
+  player.item = null;
+}
+
+window.addEventListener('keydown', e => { if (e.key === 'z' || e.key === 'x') useItem(); });
+document.getElementById('itemBtn').addEventListener('touchstart', e => { e.preventDefault(); useItem(); }, { passive: false });
+
+// ==================== ゲーム状態 ====================
+let gameState = 'menu';
+let gameTime = 0;
+const COUNTDOWN_NUMS = ['3', '2', '1', 'GO!'];
+let countdownIdx = 0;
+
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  gameState = 'countdown';
+  const cdEl = document.getElementById('countdown');
+  cdEl.style.display = 'block';
+  function showCountdown() {
+    if (countdownIdx < COUNTDOWN_NUMS.length) {
+      cdEl.textContent = COUNTDOWN_NUMS[countdownIdx];
+      cdEl.style.color = countdownIdx === COUNTDOWN_NUMS.length - 1 ? '#2ecc71' : '#fff';
+      countdownIdx++;
+      setTimeout(showCountdown, 800);
+    } else {
+      setTimeout(() => {
+        cdEl.style.display = 'none';
+        gameState = 'racing';
+        document.getElementById('hud').style.display = 'flex';
+        lastFrame = performance.now();
+        animate();
+      }, 500);
+    }
+  }
+  showCountdown();
+}
+
+// ==================== プレイヤー更新（自由走行） ====================
+function updatePlayer(dt) {
+  if (player.finished) return;
+
+  const isAccel = keys['arrowup'] || keys['w'] || accelInput;
+  const isBrake = keys['arrowdown'] || keys['s'] || brakeInput;
+  const isLeft = keys['arrowleft'] || keys['a'];
+  const isRight = keys['arrowright'] || keys['d'];
+
+  let steerTarget = steerInput;
+  if (isLeft) steerTarget = -1;
+  if (isRight) steerTarget = 1;
+
+  // アクセル
+  if (isAccel) {
+    let spd = player.maxSpeed;
+    if (player.boostTimer > 0) { spd *= 1.5; player.boostTimer -= dt; }
+    player.speed = Math.min(player.speed + player.acceleration * dt, spd);
+  } else if (isBrake) {
+    player.speed = Math.max(player.speed - player.brakeForce * dt, -2);
+  } else {
+    if (player.speed > 0) player.speed = Math.max(0, player.speed - player.friction * dt);
+    if (player.speed < 0) player.speed = Math.min(0, player.speed + player.friction * dt);
+  }
+
+  // ステアリング（角度を回転）- Three.js座標系に合わせる
+  const steerAmount = steerTarget * player.maxSteerSpeed * dt;
+  if (Math.abs(player.speed) > 0.1) {
+    const speedFactor = Math.min(1, Math.abs(player.speed) / 1);
+    // Three.js: Y軸回転は反時計回り。角度を正しく適用
+    player.angle += steerAmount * speedFactor;
+  }
+
+  // 位置更新（angle=0は-Z方向:画面奥）
+  player.x += Math.cos(player.angle) * player.speed * dt;
+  player.z -= Math.sin(player.angle) * player.speed * dt;
+
+  // パーティクル
+  if (player.speed > 2 && Math.random() < 0.15) {
+    addParticle(player.x, 1, player.z, 0xaaaaaa, 1);
+  }
+  if (player.hitTimer > 0) player.hitTimer -= dt;
+
+  // ラップチェック（スタート/ゴールライン通過判定）
+  const startSeg = segments[0];
+  const dx = player.x - startSeg.x;
+  const dz = player.z - startSeg.z;
+  const nearStart = Math.sqrt(dx*dx + dz*dz) < 50 && Math.abs(player.speed) > 1;
+
+  if (nearStart && !player._crossedStart) {
+    // スタート地点に入った → ラップ完了
+    player.lap++;
+    if (player.lap > player.totalLaps) { finishRace(); return; }
+  }
+  player._crossedStart = nearStart;
+}
+
+// ==================== AI更新（自由走行） ====================
+function updateAI(dt) {
+  aiCars.forEach(ai => {
+    ai.angle += (Math.random() - 0.5) * 0.02;
+    const spd = ai.speed + Math.sin(gameTime * 2 + ai.x * 0.01) * 0.8;
+    ai.x += Math.cos(ai.angle) * spd * dt;
+    ai.z -= Math.sin(ai.angle) * spd * dt;
+
+    const distFromCenter = Math.sqrt(ai.x * ai.x + ai.z * ai.z);
+    if (distFromCenter > 1800) {
+      ai.angle = Math.atan2(-ai.z, -ai.x);
+    }
+  });
+}
+
+// ==================== 衝突判定 ====================
+function checkCollisions() {
+  itemBoxesData.forEach(box => {
+    if (!box.active) return;
+    const dx = player.x - box.mesh.position.x;
+    const dz = player.z - box.mesh.position.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 8) {
+      box.active = false; box.mesh.visible = false; giveItem();
+    }
+  });
+
+  conesData.forEach(cone => {
+    if (cone.hit || player.hitTimer > 0) return;
+    const dx = player.x - cone.group.position.x;
+    const dz = player.z - cone.group.position.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 5) {
+      cone.hit = true; cone.group.visible = false;
+      player.speed *= 0.5; player.hitTimer = 30;
+      addParticle(cone.group.position.x, 2, cone.group.position.z, 0xe74c3c, 8);
+    }
+  });
+
+  aiCars.forEach(ai => {
+    const dx = player.x - ai.x;
+    const dz = player.z - ai.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 6) {
+      const pushAngle = Math.atan2(dz, dx);
+      player.x += Math.cos(pushAngle) * 5;
+      player.z += Math.sin(pushAngle) * 5;
+      ai.x -= Math.cos(pushAngle) * 3;
+      ai.z -= Math.sin(pushAngle) * 3;
+      player.speed *= 0.8;
+      addParticle(player.x, 2, player.z, 0xe74c3c, 6);
+    }
+  });
+}
+
+// ==================== カメラ更新 ====================
+function updateCamera() {
+  const camDist = 18;
+  const camHeight = 10;
+
+  // プレイヤーの背後から即座に追従（angle=0は-Z:画面奥）
+  camera.position.set(
+    player.x - Math.cos(player.angle) * camDist,
+    camHeight,
+    player.z + Math.sin(player.angle) * camDist
+  );
+  camera.lookAt(
+    player.x + Math.cos(player.angle) * 15,
+    2,
+    player.z - Math.sin(player.angle) * 15
+  );
+}
+
+// ==================== AI位置更新 ====================
+function updateAILocations() {
+  aiCars.forEach(ai => {
+    ai.mesh.position.set(ai.x, 0, ai.z);
+    ai.mesh.rotation.y = ai.angle;
+  });
+}
+
+// ==================== アイテムボックスアニメーション ====================
+function updateItemBoxes(time) {
+  itemBoxesData.forEach(box => {
+    if (box.active && box.mesh.visible) {
+      box.mesh.position.y = 1.5 + Math.sin(time * 3) * 0.5;
+      box.mesh.rotation.y += 0.02;
+      // ライトも点滅
+      box.light.intensity = 0.3 + Math.sin(time * 5) * 0.3;
+    } else if (!box.active) {
+      box.respawnTimer -= 1/60;
+      if (box.respawnTimer <= 0) { box.active = true; box.mesh.visible = true; }
+    }
+  });
+}
+
+// ==================== プレイヤー位置更新 ====================
+function updatePlayerLocation() {
+  // プレイヤー位置更新 - Three.js座標系に正確に合わせる
+  playerCar.position.set(player.x, player.y, player.z);
+  // movement: x+=cos(angle)*speed*dt, z-=sin(angle)*speed*dt → angle=0は+X方向、angle=π/2は-Z方向(画面奥)
+  // ExtrudeGeometryの前面が進行方向を向くように補正
+  playerCar.rotation.y = player.angle - Math.PI / 2;
+
+  // ステアリングの視覚的フィードバック（車体を少し傾ける）
+  const tiltAngle = steerInput * 0.15;
+  playerCar.rotation.z = tiltAngle;
+}
+
+// ==================== HUD更新 ====================
+function updateHUD() {
+  document.getElementById('lapDisplay').textContent = `${Math.min(player.lap, player.totalLaps)}/${player.totalLaps}`;
+  const mins = Math.floor(gameTime / 60);
+  const secs = Math.floor(gameTime % 60);
+  document.getElementById('timeDisplay').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+  let pos = 1;
+  aiCars.forEach(ai => { if (ai.speed > player.speed) pos++; });
+  const ordinals = ['st', 'nd', 'rd'];
+  document.getElementById('posDisplay').textContent = `${pos}${ordinals[pos-1] || 'th'}`;
+
+  document.getElementById('speedDisplay').textContent = `${Math.floor(Math.abs(player.speed) * 30)} km/h`;
+}
+
+// ==================== ゴール ====================
+function finishRace() {
+  player.finished = true; gameState = 'finished'; player.finishTime = gameTime;
+  let pos = 1; aiCars.forEach(ai => { if (ai.speed > player.speed) pos++; });
+  const ordinals = ['🥇', '🥈', '🥉'];
+  document.getElementById('goalTitle').textContent = `${ordinals[pos-1] || pos + '位'} ゴール！`;
+  const mins = Math.floor(player.finishTime / 60);
+  const secs = Math.floor(player.finishTime % 60);
+  document.getElementById('goalTime').textContent = `タイム: ${mins}:${secs.toString().padStart(2, '0')}`;
+  setTimeout(() => { document.getElementById('goalScreen').style.display = 'flex'; }, 1000);
+}
+
+// ==================== メインループ ====================
+let lastFrame = performance.now();
+
+function animate() {
+  if (gameState !== 'racing') return;
+
+  const dt = Math.min(2, (performance.now() - lastFrame) / 16.67);
+  lastFrame = performance.now();
+  gameTime += dt / 60;
+
+  updatePlayer(dt);
+  updateAI(dt);
+  checkCollisions();
+  updateParticles();
+  updatePlayerLocation();
+  updateAILocations();
+  updateItemBoxes(gameTime);
+  updateCamera();
+  updateHUD();
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+// ==================== タッチ操作検出 ====================
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  document.getElementById('controls').style.display = 'block';
+}
+</script>
+</body>
+</html>
