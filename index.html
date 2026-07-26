@@ -818,7 +818,12 @@ function updateCamera() {
     2,
     player.z - Math.sin(player.angle) * 15
   );
+
+  // カメラの位置をグローバル変数として保存（車の回転計算に使用）
+  _camX = camera.position.x;
+  _camZ = camera.position.z;
 }
+let _camX = 0, _camZ = 0;
 
 // ==================== AI位置更新 ====================
 function updateAILocations() {
@@ -847,9 +852,12 @@ function updateItemBoxes(time) {
 function updatePlayerLocation() {
   // プレイヤー位置更新 - Three.js座標系に正確に合わせる
   playerCar.position.set(player.x, player.y, player.z);
-  // ExtrudeGeometry前面（形状y=-3側）はrotation.x=-π/2でローカル+Z方向を向く
-  // movement: x+=cos(angle)*speed*dt, z-=sin(angle)*speed*dt と一致させる
-  playerCar.rotation.y = player.angle - Math.PI / 2;
+  // 車の前をカメラの方へ向ける（カメラと車を直線で結ぶ方向）
+  const dx = _camX - player.x;
+  const dz = _camZ - player.z;
+  const camAngle = Math.atan2(dx, dz);
+  // ExtrudeGeometry前面のローカル座標系補正
+  playerCar.rotation.y = camAngle - Math.PI / 2;
 
   // ステアリングの視覚的フィードバック（車体を少し傾ける）
   const tiltAngle = steerInput * 0.15;
