@@ -702,7 +702,7 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  let steerTarget = -steerInput;
+  let steerTarget = steerInput;
   if (isLeft) steerTarget = -1;
   if (isRight) steerTarget = 1;
 
