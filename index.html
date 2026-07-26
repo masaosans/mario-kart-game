@@ -702,7 +702,7 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  let steerTarget = steerInput;
+  let steerTarget = -steerInput;
   if (isLeft) steerTarget = -1;
   if (isRight) steerTarget = 1;
 
@@ -802,28 +802,19 @@ function checkCollisions() {
   });
 }
 
-// ==================== カメラ更新 ====================
+// ==================== カメラ更新（フロントチェイス） ====================
 function updateCamera() {
   const camDist = 18;
   const camHeight = 10;
 
-  // プレイヤーの背後から即座に追従（angle=0は-Z:画面奥）
+  // 車前方から後ろを向くカメラ（車の前面・横が見える）
   camera.position.set(
-    player.x - Math.cos(player.angle) * camDist,
+    player.x + Math.cos(player.angle) * camDist,
     camHeight,
-    player.z + Math.sin(player.angle) * camDist
+    player.z - Math.sin(player.angle) * camDist
   );
-  camera.lookAt(
-    player.x + Math.cos(player.angle) * 15,
-    2,
-    player.z - Math.sin(player.angle) * 15
-  );
-
-  // カメラの位置をグローバル変数として保存（車の回転計算に使用）
-  _camX = camera.position.x;
-  _camZ = camera.position.z;
+  camera.lookAt(player.x, 2, player.z);
 }
-let _camX = 0, _camZ = 0;
 
 // ==================== AI位置更新 ====================
 function updateAILocations() {
@@ -850,14 +841,9 @@ function updateItemBoxes(time) {
 
 // ==================== プレイヤー位置更新 ====================
 function updatePlayerLocation() {
-  // プレイヤー位置更新 - Three.js座標系に正確に合わせる
   playerCar.position.set(player.x, player.y, player.z);
-  // 車の前をカメラの方へ向ける（カメラと車を直線で結ぶ方向）
-  const dx = _camX - player.x;
-  const dz = _camZ - player.z;
-  const camAngle = Math.atan2(dx, dz);
-  // ExtrudeGeometry前面のローカル座標系補正
-  playerCar.rotation.y = camAngle - Math.PI / 2;
+  // 進行方向を向く（ExtrudeGeometry前面のローカル座標系補正）
+  playerCar.rotation.y = player.angle - Math.PI / 2;
 
   // ステアリングの視覚的フィードバック（車体を少し傾ける）
   const tiltAngle = steerInput * 0.15;
