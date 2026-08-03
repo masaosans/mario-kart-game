@@ -604,29 +604,61 @@ function getSteerCenter() {
 }
 
 steerKnob.addEventListener('touchstart', e => {
-  e.preventDefault(); steerDragging = true;
+  e.preventDefault();
+  steerDragging = true;
   const c = getSteerCenter(); steerCenterX = c.x; steerCenterY = c.y;
 }, { passive: false });
 
 document.addEventListener('touchmove', e => {
   if (!steerDragging) return;
-  const touch = e.touches[0];
+  // changedTouches は指が動いた時のみ入るので、e.touches からハンドルエリア内のタッチを探す
   const rect = steerArea.getBoundingClientRect();
   const halfW = rect.width / 2 - 30;
-  let dx = (touch.clientX - steerCenterX);
-  let dy = (touch.clientY - steerCenterY);
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
-  steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-  steerInput = Math.max(-1, Math.min(1, dx / halfW));
+  let found = false;
+  for (let i = 0; i < e.touches.length; i++) {
+    const t = e.touches[i];
+    // このタッチがハンドルエリア内にあるかチェック
+    if (t.clientX >= rect.left && t.clientX <= rect.right &&
+        t.clientY >= rect.top && t.clientY <= rect.bottom) {
+      let dx = (t.clientX - steerCenterX);
+      let dy = (t.clientY - steerCenterY);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
+      steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      steerInput = Math.max(-1, Math.min(1, dx / halfW));
+      found = true;
+      break;
+    }
+  }
+  if (!found && steerDragging) {
+    // ハンドルエリア外に指があればリセット（アクセルボタン等）
+    steerInput = 0;
+    steerKnob.style.transform = 'translate(-50%, -50%)';
+  }
 }, { passive: true });
 
-document.addEventListener('touchend', () => {
-  if (steerDragging) {
+document.addEventListener('touchend', e => {
+  // ハンドルエリアから指が離れたかチェック
+  const rect = steerArea.getBoundingClientRect();
+  let stillInArea = false;
+  for (let i = 0; i < e.touches.length; i++) {
+    if (e.touches[i].clientX >= rect.left && e.touches[i].clientX <= rect.right &&
+        e.touches[i].clientY >= rect.top && e.touches[i].clientY <= rect.bottom) {
+      stillInArea = true;
+      break;
+    }
+  }
+  if (!stillInArea) {
     steerDragging = false;
     steerKnob.style.transform = 'translate(-50%, -50%)';
     steerInput = 0;
   }
+});
+
+document.addEventListener('touchcancel', e => {
+  steerDragging = false;
+  steerKnob.style.transform = 'translate(-50%, -50%)';
+  steerInput = 0;
 });
 
 // ==================== タッチ操作：アクセル・ブレーキ（右側） ====================
