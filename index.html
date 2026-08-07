@@ -611,36 +611,58 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 let steerInput = 0;
 const steerArea = document.getElementById('steerArea');
 const steerKnob = document.getElementById('steerKnob');
-let steerDragging = false;
-let steerCenterX, steerCenterY;
-let steerPointerId = null; // ポインターIDで指を追跡（マルチタッチ確実）
+
+// アクティブなポインターIDのセット（複数指同時タッチ対応）
+const activePointerIds = new Set();
 
 function getSteerCenter() {
   const rect = steerArea.getBoundingClientRect();
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
-steerKnob.addEventListener('pointerdown', e => {
-  // ノブの半径内かチェック（誤タッチ防止）
-  const rect = steerArea.getBoundingClientRect();
-  const halfW = rect.width / 2;
-  const dx = e.clientX - (rect.left + halfW);
-  const dy = e.clientY - (rect.top + halfW);
-  if (Math.sqrt(dx * dx + dy * dy) > halfW) return; // ノブ外なら無視
+// ハンドルエリア内のポインターを特定（座標で判定）
+function findPointerInSteerArea() {
+  // navigator.getCoalescedEvents() や e.pointerType は使えないので、
+  // documentの全active pointerからハンドルエリア内を探す
+  for (const id of activePointerIds) {
+    const rect = steerArea.getBoundingClientRect();
+    // このポインターの現在位置を取得（座標は毎フレーム更新済み）
+    if (pointerPositions.has(id)) {
+      const pos = pointerPositions.get(id);
+      if (pos.x >= rect.left && pos.x <= rect.right &&
+          pos.y >= rect.top && pos.y <= rect.bottom) {
+        return id;
+      }
+    }
+  }
+  return null;
+}
 
-  e.preventDefault();
-  steerDragging = true;
-  steerPointerId = e.pointerId;
-  const c = getSteerCenter(); steerCenterX = c.x; steerCenterY = c.y;
-  steerArea.setPointerCapture(e.pointerId); // このポインターをハンドルエリアに固定
-}, { passive: false });
+// ポインター位置の追跡用マップ
+const pointerPositions = new Map();
+
+document.addEventListener('pointerdown', e => {
+  activePointerIds.add(e.pointerId);
+  pointerPositions.set(e.pointerId, { x: e.clientX, y: e.clientY });
+});
 
 document.addEventListener('pointermove', e => {
-  if (!steerDragging || e.pointerId !== steerPointerId) return;
+  pointerPositions.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  // ハンドルエリア内のポインターを特定
+  const steerPtrId = findPointerInSteerArea();
+  if (steerPtrId === null) {
+    // ハンドルエリア内に指がなければリセット
+    steerInput = 0;
+    steerKnob.style.transform = 'translate(-50%, -50%)';
+    return;
+  }
+
+  const pos = pointerPositions.get(steerPtrId);
   const rect = steerArea.getBoundingClientRect();
   const halfW = rect.width / 2 - 30;
-  let dx = (e.clientX - steerCenterX);
-  let dy = (e.clientY - steerCenterY);
+  let dx = (pos.x - (rect.left + rect.width / 2));
+  let dy = (pos.y - (rect.top + rect.height / 2));
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
   steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
@@ -648,38 +670,39 @@ document.addEventListener('pointermove', e => {
 });
 
 document.addEventListener('pointerup', e => {
-  if (e.pointerId === steerPointerId) {
-    steerDragging = false;
-    steerKnob.style.transform = 'translate(-50%, -50%)';
+  activePointerIds.delete(e.pointerId);
+  pointerPositions.delete(e.pointerId);
+  // ハンドルエリア内のポインターがなくなったらリセット
+  if (findPointerInSteerArea() === null) {
     steerInput = 0;
-    steerPointerId = null;
+    steerKnob.style.transform = 'translate(-50%, -50%)';
   }
 });
 
 document.addEventListener('pointercancel', e => {
-  if (e.pointerId === steerPointerId) {
-    steerDragging = false;
-    steerKnob.style.transform = 'translate(-50%, -50%)';
+  activePointerIds.delete(e.pointerId);
+  pointerPositions.delete(e.pointerId);
+  if (findPointerInSteerArea() === null) {
     steerInput = 0;
-    steerPointerId = null;
+    steerKnob.style.transform = 'translate(-50%, -50%)';
   }
 });
 
 document.addEventListener('pointerleave', e => {
-  if (e.pointerId === steerPointerId) {
-    steerDragging = false;
-    steerKnob.style.transform = 'translate(-50%, -50%)';
+  activePointerIds.delete(e.pointerId);
+  pointerPositions.delete(e.pointerId);
+  if (findPointerInSteerArea() === null) {
     steerInput = 0;
-    steerPointerId = null;
+    steerKnob.style.transform = 'translate(-50%, -50%)';
   }
 });
 
 // ==================== タッチ操作：アクセル・ブレーキ（右側） ====================
 let accelInput = false, brakeInput = false;
-document.getElementById('accelBtn').addEventListener('touchstart', e => { e.preventDefault(); accelInput = true; }, { passive: false });
-document.getElementById('accelBtn').addEventListener('touchend', () => { accelInput = false; });
-document.getElementById('brakeBtn').addEventListener('touchstart', e => { e.preventDefault(); brakeInput = true; }, { passive: false });
-document.getElementById('brakeBtn').addEventListener('touchend', () => { brakeInput = false; });
+document.getElementById('accelBtn').addEventListener('pointerdown', e => { e.preventDefault(); accelInput = true; }, { passive: false });
+document.getElementById('accelBtn').addEventListener('pointerup', () => { accelInput = false; });
+document.getElementById('brakeBtn').addEventListener('pointerdown', e => { e.preventDefault(); brakeInput = true; }, { passive: false });
+document.getElementById('brakeBtn').addEventListener('pointerup', () => { brakeInput = false; });
 
 // ==================== アイテム使用 ====================
 function giveItem() {
