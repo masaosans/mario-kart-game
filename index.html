@@ -130,6 +130,21 @@ canvas { display: block; }
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
+// ==================== 定数定義 ====================
+const GAME = {
+  MAX_SPEED: 3.5,           // 最大速度
+  ACCELERATION: 0.04,       // アクセル加速度
+  BRAKE_FORCE: 0.08,        // ブレーキ力
+  FRICTION: 0.015,          // 摩擦減速
+  MAX_STEER_SPEED: 0.04,    // ステアリング角速度
+  STEER_FACTOR_MIN_SPEED: 1,// 速度係数の基準値
+  BOOST_MULTIPLIER: 1.5,    // ブースト倍率
+  CAM_DIST: 18,             // カメラ距離
+  CAM_HEIGHT: 10,           // カメラ高さ
+  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面方向とrotation.yのオフセット
+  // angle=0 → +X方向、angle=π/2 → -Z方向（画面奥）、Y軸回転は反時計回り
+};
+
 // ==================== Three.js セットアップ ====================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
@@ -478,7 +493,7 @@ function createItemBox(x, z) {
   light.position.set(x, 3, z);
   scene.add(light);
 
-  return { mesh, active: true, light };
+  return { mesh, active: true, light, respawnTimer: 0 }; // respawnTimer初期値追加
 }
 
 // ==================== コーン（強化版） ====================
@@ -518,14 +533,15 @@ scene.add(playerCar);
 const player = {
   x: trackPoints[10].x, z: trackPoints[10].z,
   y: 0,
+  // angle初期値：セグメントの進行方向を向く（atan2(x,y)で方向ベクトルから角度算出）
   angle: Math.atan2(segments[10].tx, segments[10].tz),
   speed: 0,
-  maxSpeed: 3.5,
-  acceleration: 0.04,
-  brakeForce: 0.08,
-  friction: 0.015,
+  maxSpeed: GAME.MAX_SPEED,
+  acceleration: GAME.ACCELERATION,
+  brakeForce: GAME.BRAKE_FORCE,
+  friction: GAME.FRICTION,
   steerAngle: 0,
-  maxSteerSpeed: 0.04,
+  maxSteerSpeed: GAME.MAX_STEER_SPEED,
   lap: 1, totalLaps: 3,
   finished: false, finishTime: 0,
   item: null, boostTimer: 0, hitTimer: 0,
@@ -605,6 +621,13 @@ function getSteerCenter() {
 }
 
 steerKnob.addEventListener('pointerdown', e => {
+  // ノブの半径内かチェック（誤タッチ防止）
+  const rect = steerArea.getBoundingClientRect();
+  const halfW = rect.width / 2;
+  const dx = e.clientX - (rect.left + halfW);
+  const dy = e.clientY - (rect.top + halfW);
+  if (Math.sqrt(dx * dx + dy * dy) > halfW) return; // ノブ外なら無視
+
   e.preventDefault();
   steerDragging = true;
   steerPointerId = e.pointerId;
@@ -731,7 +754,7 @@ function updatePlayer(dt) {
   // アクセル
   if (isAccel) {
     let spd = player.maxSpeed;
-    if (player.boostTimer > 0) { spd *= 1.5; player.boostTimer -= dt; }
+    if (player.boostTimer > 0) { spd *= GAME.BOOST_MULTIPLIER; player.boostTimer -= dt; }
     player.speed = Math.min(player.speed + player.acceleration * dt, spd);
   } else if (isBrake) {
     player.speed = Math.max(player.speed - player.brakeForce * dt, -2);
@@ -743,12 +766,12 @@ function updatePlayer(dt) {
   // ステアリング（角度を回転）- Three.js座標系に合わせる
   const steerAmount = steerTarget * player.maxSteerSpeed * dt;
   if (Math.abs(player.speed) > 0.1) {
-    const speedFactor = Math.min(1, Math.abs(player.speed) / 1);
-    // Three.js: Y軸回転は反時計回り。角度を正しく適用
+    // 速度が低いほどステアリング効きを落とす（実車のような挙動）
+    const speedFactor = Math.min(1, Math.abs(player.speed) / GAME.STEER_FACTOR_MIN_SPEED);
     player.angle += steerAmount * speedFactor;
   }
 
-  // 位置更新（angle=0は+X方向、angle=π/2は-Z方向:画面奥）
+  // 位置更新：angle=0→+X方向、angle=π/2→-Z（画面奥）
   player.x += Math.cos(player.angle) * player.speed * dt;
   player.z -= Math.sin(player.angle) * player.speed * dt;
 
@@ -826,14 +849,11 @@ function checkCollisions() {
 
 // ==================== カメラ更新（フロントチェイス） ====================
 function updateCamera() {
-  const camDist = 18;
-  const camHeight = 10;
-
   // 車前方から後ろを向くカメラ（車の前面・横が見える）
   camera.position.set(
-    player.x + Math.cos(player.angle) * camDist,
-    camHeight,
-    player.z - Math.sin(player.angle) * camDist
+    player.x + Math.cos(player.angle) * GAME.CAM_DIST,
+    GAME.CAM_HEIGHT,
+    player.z - Math.sin(player.angle) * GAME.CAM_DIST
   );
   camera.lookAt(player.x, 2, player.z);
 }
@@ -864,8 +884,9 @@ function updateItemBoxes(time) {
 // ==================== プレイヤー位置更新 ====================
 function updatePlayerLocation() {
   playerCar.position.set(player.x, player.y, player.z);
-  // 進行方向を向く（ExtrudeGeometry前面のローカル座標系補正）
-  playerCar.rotation.y = player.angle - Math.PI / 2;
+  // ExtrudeGeometryの前面方向（ローカル+Z）とrotation.y=0の向き（世界座標+X）が
+  // Math.PI/2ずれているため、オフセットを補正して進行方向を向かせる
+  playerCar.rotation.y = player.angle + GAME.ROTATION_OFFSET;
 
   // ステアリングの視覚的フィードバック（車体を少し傾ける）
   const tiltAngle = steerInput * 0.15;
