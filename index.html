@@ -141,7 +141,7 @@ const GAME = {
   BOOST_MULTIPLIER: 1.5,    // ブースト倍率
   CAM_DIST: 18,             // カメラ距離
   CAM_HEIGHT: 10,           // カメラ高さ
-  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面方向とrotation.yのオフセット
+  ROTATION_OFFSET: 0, // ExtrudeGeometry前面方向はrotation.x=-π/2で世界+Xを向く → オフセット不要
   // angle=0 → +X方向、angle=π/2 → -Z方向（画面奥）、Y軸回転は反時計回り
 };
 
