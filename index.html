@@ -771,7 +771,9 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  let steerTarget = steerInput;
+  // タッチ: 右ドラッグ(+)→右旋回(-), 左ドラッグ(-)→左旋回(+) → 符号反転必要
+  // キーボード: 左キー→正=左旋回, 右キー→負=右旋回 → そのまま
+  let steerTarget = -steerInput;
   if (isLeft) steerTarget = 1;
   if (isRight) steerTarget = -1;
 
