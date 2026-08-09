@@ -721,7 +721,7 @@ function useItem() {
     case '🍌':
       aiCars.forEach(ai => { const d = Math.sqrt((ai.x-player.x)**2 + (ai.z-player.z)**2); if(d < 300) ai.speed *= 0.5; });
       addParticle(player.x, 1, player.z, 0xf1c40f, 5); break;
-    case '🥚': player.boostTimer = 60; addParticle(player.x + Math.cos(player.angle)*30, 2, player.z + Math.sin(player.angle)*30, 0xffffff, 8); break;
+    case '🥚': player.boostTimer = 60; addParticle(player.x + Math.cos(player.angle)*30, 2, player.z - Math.sin(player.angle)*30, 0xffffff, 8); break;
     case '⭐': player.boostTimer = 180; player.hitTimer = -999; addParticle(player.x, 3, player.z, 0xffff00, 15); break;
     case '🔴': aiCars.forEach(ai => { const d = Math.sqrt((ai.x-player.x)**2 + (ai.z-player.z)**2); if(d < 240) { ai.speed *= 0.3; addParticle(ai.x, 2, ai.z, 0xe74c3c, 10); } }); break;
     case '🟢': player.boostTimer = 120; addParticle(player.x, 2, player.z, 0x2ecc71, 8); break;
@@ -771,11 +771,11 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  // タッチ: 左ドラッグ→左旋回(角度減少)、右ドラッグ→右旋回(角度増加)
-  // キーボード: 左キー→負=左旋回、右キー→正=右旋回 → そのまま
-  let steerTarget = steerInput;
-  if (isLeft) steerTarget = -1;
-  if (isRight) steerTarget = 1;
+  // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少)
+  // キーボード: 左キー→正=左旋回、右キー→負=右旋回 → そのまま
+  let steerTarget = -steerInput;
+  if (isLeft) steerTarget = 1;
+  if (isRight) steerTarget = -1;
 
   // アクセル
   if (isAccel) {
@@ -879,7 +879,7 @@ function updateCamera() {
   camera.position.set(
     player.x + Math.cos(player.angle) * GAME.CAM_DIST,
     GAME.CAM_HEIGHT,
-    player.z + Math.sin(player.angle) * GAME.CAM_DIST
+    player.z - Math.sin(player.angle) * GAME.CAM_DIST
   );
   camera.lookAt(player.x, 2, player.z);
 }
