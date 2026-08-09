@@ -773,9 +773,7 @@ function updatePlayer(dt) {
 
   // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少)
   // キーボード: 左キー→正=左旋回、右キー→負=右旋回 → そのまま
-  let steerTarget = steerInput;
-  if (isLeft) steerTarget = -1;
-  if (isRight) steerTarget = 1;
+  let steerTarget = -steerInput;
 
   // アクセル
   if (isAccel) {
