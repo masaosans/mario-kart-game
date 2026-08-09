@@ -141,7 +141,7 @@ const GAME = {
   BOOST_MULTIPLIER: 1.5,    // ブースト倍率
   CAM_DIST: 18,             // カメラ距離
   CAM_HEIGHT: 10,           // カメラ高さ
-  ROTATION_OFFSET: 0, // ExtrudeGeometry前面(rotation.x=-π/2)は+Zを向く → z+=sin(angle)でangle=0が+X移動と整合
+  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(rotation.x=-π/2)の向きを補正。angle=0で+X方向を向く（標準極座標系）
   // angle=0 → +X方向、angle=π/2 → -Z方向（画面奥）、Y軸回転は反時計回り
 };
 
@@ -773,9 +773,9 @@ function updatePlayer(dt) {
 
   // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少)
   // キーボード: 左キー→正=左旋回、右キー→負=右旋回 → そのまま
-  let steerTarget = -steerInput;
-  if (isLeft) steerTarget = 1;
-  if (isRight) steerTarget = -1;
+  let steerTarget = steerInput;
+  if (isLeft) steerTarget = -1;
+  if (isRight) steerTarget = 1;
 
   // アクセル
   if (isAccel) {
