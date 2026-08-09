@@ -141,7 +141,7 @@ const GAME = {
   BOOST_MULTIPLIER: 1.5,    // ブースト倍率
   CAM_DIST: 18,             // カメラ距離
   CAM_HEIGHT: 10,           // カメラ高さ
-  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(rotation.x=-π/2)の向きを補正。angle=0で+X方向を向く（標準極座標系）
+  ROTATION_OFFSET: 0, // ExtrudeGeometry前面(rotation.x=-π/2)は既に+Xを指す。angle=0で+X進行と一致
   // angle=0 → +X方向、angle=π/2 → -Z方向（画面奥）、Y軸回転は反時計回り
 };
 
@@ -771,8 +771,7 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少)
-  // キーボード: 左キー→正=左旋回、右キー→負=右旋回 → そのまま
+  // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少) — Three.js Y軸回転と整合
   let steerTarget = -steerInput;
 
   // アクセル
@@ -871,15 +870,20 @@ function checkCollisions() {
   });
 }
 
-// ==================== カメラ更新（フロントチェイス） ====================
+// ==================== カメラ更新（チェイスカメラ） ====================
 function updateCamera() {
-  // 車前方から後ろを向くカメラ（車の前面・横が見える）
+  // 車の後方から前方を見るカメラ（標準レーシングゲーム視点）
   camera.position.set(
-    player.x + Math.cos(player.angle) * GAME.CAM_DIST,
+    player.x - Math.cos(player.angle) * GAME.CAM_DIST,
     GAME.CAM_HEIGHT,
-    player.z + Math.sin(player.angle) * GAME.CAM_DIST
+    player.z - Math.sin(player.angle) * GAME.CAM_DIST
   );
-  camera.lookAt(player.x, 2, player.z);
+  // 車の進行方向先を見つめる
+  camera.lookAt(
+    player.x + Math.cos(player.angle) * 15,
+    2,
+    player.z + Math.sin(player.angle) * 15
+  );
 }
 
 // ==================== AI位置更新 ====================
