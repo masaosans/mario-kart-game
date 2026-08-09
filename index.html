@@ -721,7 +721,7 @@ function useItem() {
     case '🍌':
       aiCars.forEach(ai => { const d = Math.sqrt((ai.x-player.x)**2 + (ai.z-player.z)**2); if(d < 300) ai.speed *= 0.5; });
       addParticle(player.x, 1, player.z, 0xf1c40f, 5); break;
-    case '🥚': player.boostTimer = 60; addParticle(player.x + Math.cos(player.angle)*30, 2, player.z - Math.sin(player.angle)*30, 0xffffff, 8); break;
+    case '🥚': player.boostTimer = 60; addParticle(player.x + Math.cos(player.angle)*30, 2, player.z + Math.sin(player.angle)*30, 0xffffff, 8); break;
     case '⭐': player.boostTimer = 180; player.hitTimer = -999; addParticle(player.x, 3, player.z, 0xffff00, 15); break;
     case '🔴': aiCars.forEach(ai => { const d = Math.sqrt((ai.x-player.x)**2 + (ai.z-player.z)**2); if(d < 240) { ai.speed *= 0.3; addParticle(ai.x, 2, ai.z, 0xe74c3c, 10); } }); break;
     case '🟢': player.boostTimer = 120; addParticle(player.x, 2, player.z, 0x2ecc71, 8); break;
@@ -797,9 +797,9 @@ function updatePlayer(dt) {
     player.angle += steerAmount * speedFactor;
   }
 
-  // 位置更新：angle=0→+X方向、angle=π/2→-Z（画面奥）、反時計回り
+  // 位置更新：angle=0→+X方向、angle=π/2→+Z（画面奥）、反時計回り
   player.x += Math.cos(player.angle) * player.speed * dt;
-  player.z -= Math.sin(player.angle) * player.speed * dt;
+  player.z += Math.sin(player.angle) * player.speed * dt;
 
   // パーティクル
   if (player.speed > 2 && Math.random() < 0.15) {
@@ -827,7 +827,7 @@ function updateAI(dt) {
     ai.angle += (Math.random() - 0.5) * 0.02;
     const spd = ai.speed + Math.sin(gameTime * 2 + ai.x * 0.01) * 0.8;
     ai.x += Math.cos(ai.angle) * spd * dt;
-    ai.z -= Math.sin(ai.angle) * spd * dt;
+    ai.z += Math.sin(ai.angle) * spd * dt;
 
     const distFromCenter = Math.sqrt(ai.x * ai.x + ai.z * ai.z);
     if (distFromCenter > 1800) {
@@ -879,7 +879,7 @@ function updateCamera() {
   camera.position.set(
     player.x + Math.cos(player.angle) * GAME.CAM_DIST,
     GAME.CAM_HEIGHT,
-    player.z - Math.sin(player.angle) * GAME.CAM_DIST
+    player.z + Math.sin(player.angle) * GAME.CAM_DIST
   );
   camera.lookAt(player.x, 2, player.z);
 }
