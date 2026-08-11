@@ -609,6 +609,7 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 // ==================== タッチ操作：ハンドル（左側） ====================
 let steerInput = 0;
+let steerTarget = 0; // グローバル化: updatePlayerLocation()でも使用するため
 const steerArea = document.getElementById('steerArea');
 const steerKnob = document.getElementById('steerKnob');
 
@@ -772,7 +773,7 @@ function updatePlayer(dt) {
   const isRight = keys['arrowright'] || keys['d'];
 
   // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少) — Three.js Y軸回転と整合
-  let steerTarget = -steerInput;
+  steerTarget = -steerInput;
 
   // アクセル
   if (isAccel) {
