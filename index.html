@@ -772,8 +772,12 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  // タッチ: 左ドラッグ→左旋回(角度増加)、右ドラッグ→右旋回(角度減少) — Three.js Y軸回転と整合
+  // タッチ: カメラ前方視点なので左ドラッグ→画面左旋回(角度増加)、右ドラッグ→画面右旋回(角度減少)
   steerTarget = -steerInput;
+
+  // キーボード: 矢印/WSでステアリング（タッチと加算）
+  if (isLeft) steerTarget += 1;
+  if (isRight) steerTarget -= 1;
 
   // アクセル
   if (isAccel) {
@@ -873,17 +877,17 @@ function checkCollisions() {
 
 // ==================== カメラ更新（チェイスカメラ） ====================
 function updateCamera() {
-  // 車の後方から前方を見るカメラ（標準レーシングゲーム視点）
+  // カメラを車の後方に配置し、進行方向を見る（標準レーシングゲーム視点）
   camera.position.set(
     player.x - Math.cos(player.angle) * GAME.CAM_DIST,
     GAME.CAM_HEIGHT,
-    player.z - Math.sin(player.angle) * GAME.CAM_DIST
+    player.z + Math.sin(player.angle) * GAME.CAM_DIST
   );
   // 車の進行方向先を見つめる
   camera.lookAt(
     player.x + Math.cos(player.angle) * 15,
     2,
-    player.z + Math.sin(player.angle) * 15
+    player.z - Math.sin(player.angle) * 15
   );
 }
 
