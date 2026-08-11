@@ -141,8 +141,8 @@ const GAME = {
   BOOST_MULTIPLIER: 1.5,    // ブースト倍率
   CAM_DIST: 18,             // カメラ距離
   CAM_HEIGHT: 10,           // カメラ高さ
-  ROTATION_OFFSET: 0, // ExtrudeGeometry前面(rotation.x=-π/2)は既に+Xを指す。angle=0で+X進行と一致
-  // angle=0 → +X方向、angle=π/2 → -Z方向（画面奥）、Y軸回転は反時計回り
+  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(ローカル+Z)を世界座標+Xに向けるオフセット
+  // angle=0 → +X方向、angle=π/2 → -Z方向（左旋回）、Y軸回転は反時計回り
 };
 
 // ==================== Three.js セットアップ ====================
