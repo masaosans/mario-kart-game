@@ -291,6 +291,7 @@ function createCenterLine() {
 }
 
 // ==================== 木々（強化版） ====================
+const treesData = [];
 function createTrees() {
   for (let i = 0; i < 80; i++) {
     const segIdx = Math.floor(Math.random() * numTrackPts);
@@ -301,8 +302,9 @@ function createTrees() {
 
     // 幹
     const trunkH = 12 + Math.random() * 8;
+    const trunkRadius = 3;
     const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.5, 3, trunkH, 6),
+      new THREE.CylinderGeometry(1.5, trunkRadius, trunkH, 6),
       new THREE.MeshLambertMaterial({ color: 0x8B4513 })
     );
     trunk.position.set(tx, trunkH / 2 - 1, tz);
@@ -322,10 +324,13 @@ function createTrees() {
       leaves.castShadow = true;
       scene.add(leaves);
     }
+
+    treesData.push({ x: tx, z: tz, radius: trunkRadius });
   }
 }
 
-// ==================== 装飾：岩 ====================
+// ==================== 岩（衝突判定付き） ====================
+const rocksData = [];
 function createRocks() {
   for (let i = 0; i < 30; i++) {
     const segIdx = Math.floor(Math.random() * numTrackPts);
@@ -334,13 +339,16 @@ function createRocks() {
     const dist = trackPoints.length > 0 ? (60 + Math.random() * 300) : 200;
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
 
-    const rockGeo = new THREE.DodecahedronGeometry(2 + Math.random() * 4);
+    const radius = 2 + Math.random() * 4;
+    const rockGeo = new THREE.DodecahedronGeometry(radius);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
-    rock.position.set(tx, 1, tz);
+    rock.position.set(tx, radius * 0.5, tz);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.castShadow = true;
     scene.add(rock);
+
+    rocksData.push({ mesh: rock, x: tx, z: tz, radius });
   }
 }
 
@@ -871,6 +879,38 @@ function checkCollisions() {
       ai.z -= Math.sin(pushAngle) * 3;
       player.speed *= 0.8;
       addParticle(player.x, 2, player.z, 0xe74c3c, 6);
+    }
+  });
+
+  // 岩との衝突判定
+  rocksData.forEach(rock => {
+    if (player.hitTimer > 0) return;
+    const dx = player.x - rock.x;
+    const dz = player.z - rock.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < rock.radius + 2.5) { // 2.5 = プレイヤーの半径近似
+      const pushAngle = Math.atan2(dz, dx);
+      player.x += Math.cos(pushAngle) * (rock.radius + 1);
+      player.z += Math.sin(pushAngle) * (rock.radius + 1);
+      player.speed *= 0.3;
+      player.hitTimer = 45;
+      addParticle(rock.x, 2, rock.z, 0x808080, 10);
+    }
+  });
+
+  // 木との衝突判定（幹のみ）
+  treesData.forEach(tree => {
+    if (player.hitTimer > 0) return;
+    const dx = player.x - tree.x;
+    const dz = player.z - tree.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < tree.radius + 2.5) {
+      const pushAngle = Math.atan2(dz, dx);
+      player.x += Math.cos(pushAngle) * (tree.radius + 1);
+      player.z += Math.sin(pushAngle) * (tree.radius + 1);
+      player.speed *= 0.3;
+      player.hitTimer = 45;
+      addParticle(tree.x, 2, tree.z, 0x8B4513, 10);
     }
   });
 }
