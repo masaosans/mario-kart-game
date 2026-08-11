@@ -297,7 +297,13 @@ function createTrees() {
     const segIdx = Math.floor(Math.random() * numTrackPts);
     const s = segments[segIdx];
     const side = Math.random() > 0.5 ? 1 : -1;
-    const dist = 60 + Math.random() * 400;
+    // 木もトラック寄りに（一部はコース端に）
+    let dist;
+    if (Math.random() < 0.4) {
+      dist = 35 + Math.random() * 20; // 40%はコース端寄り
+    } else {
+      dist = 60 + Math.random() * 150;
+    }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
 
     // 幹
@@ -336,10 +342,16 @@ function createRocks() {
     const segIdx = Math.floor(Math.random() * numTrackPts);
     const s = segments[segIdx];
     const side = Math.random() > 0.5 ? 1 : -1;
-    const dist = trackPoints.length > 0 ? (60 + Math.random() * 300) : 200;
+    // 岩をトラック寄りに配置（一部はコース上に）
+    let dist;
+    if (Math.random() < 0.3) {
+      dist = 15 + Math.random() * 25; // 30%の確率でコース上またはすぐ横
+    } else {
+      dist = 45 + Math.random() * 80; // 70%は少し離す
+    }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
 
-    const radius = 2 + Math.random() * 4;
+    const radius = 2 + Math.random() * 3.5;
     const rockGeo = new THREE.DodecahedronGeometry(radius);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
