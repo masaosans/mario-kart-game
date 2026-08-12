@@ -188,6 +188,16 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
+// ==================== 地形高さ取得（単一関数で統一） ====================
+function getTerrainHeight(x, z) {
+  // 直交座標ベースのサイン波合成で起伏を計算
+  let y = 0;
+  y += Math.sin(x * 0.004 + z * 0.002) * 18;   // 大きな丘
+  y += Math.sin(x * 0.01 + z * 0.006 + 1) * 10; // 中くらいの起伏
+  y += Math.cos(x * 0.02 - z * 0.015 + 2) * 5;  // 細かい凸凹
+  return Math.max(-20, Math.min(25, y));
+}
+
 // ==================== トラック定義 ====================
 const trackPoints = [];
 const numTrackPts = 200;
@@ -207,13 +217,8 @@ for (let i = 0; i < numTrackPts; i++) {
   const len = Math.sqrt(dx * dx + dz * dz);
   dx /= len; dz /= len;
 
-  // 地形高さ：複数のサイン波を合成して起伏をつける
-  const t = i / numTrackPts * Math.PI * 2;
-  let y = 0;
-  y += Math.sin(t * 3) * 15;    // 大きな丘
-  y += Math.sin(t * 7 + 1) * 8; // 中くらいの起伏
-  y += Math.cos(t * 13 + 2) * 4;// 細かい凸凹
-  y = Math.max(-20, Math.min(25, y)); // -20〜25の範囲に制限
+  // 地形高さ：単一関数で計算（セグメントのx,z座標から）
+  const y = getTerrainHeight(curr.x, curr.z);
 
   segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx, y });
 }
@@ -222,16 +227,11 @@ for (let i = 0; i < numTrackPts; i++) {
 const groundSize = 6000;
 const groundSegs = 120; // 分割数：多いほど滑らかな起伏
 const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, groundSegs, groundSegs);
-// 頂点ごとに地形高さを計算してY座標をずらす（直交座標ベースのノイズ）
+// 頂点ごとに地形高さを計算してY座標をずらす（同じgetTerrainHeight関数を使用）
 const gPos = groundGeo.attributes.position;
 for (let i = 0; i < gPos.count; i++) {
   const gx = gPos.getX(i), gy2 = gPos.getY(i); // PlaneGeometryはXY平面に配置
-  // 直交座標ベースのサイン波で起伏を生成（トラックの起伏と整合性のあるパターン）
-  let gz = 0;
-  gz += Math.sin(gx * 0.005) * Math.cos(gy2 * 0.003) * 18;   // 大きな丘
-  gz += Math.sin(gx * 0.012 + 1) * Math.cos(gy2 * 0.008 + 2) * 10; // 中くらいの起伏
-  gz += Math.sin(gx * 0.025 + gy2 * 0.02) * 5;               // 細かい凸凹
-  gz = Math.max(-20, Math.min(25, gz));
+  const gz = getTerrainHeight(gx, gy2);
   gPos.setZ(i, gz); // Zに書き込む（後でX軸回転してYにする）
 }
 groundGeo.computeVertexNormals();
@@ -521,13 +521,6 @@ function getNearestSegment(px, pz) {
     if (d < minDist) { minDist = d; minIdx = i; }
   }
   return minIdx;
-}
-
-// セグメント間を補間した地形高さを取得
-function getTerrainHeight(px, pz) {
-  const idx = getNearestSegment(px, pz);
-  // 最も近いセグメントの高さを使用（簡易）
-  return segments[idx].y;
 }
 
 // ==================== アイテムボックス（強化版、地形追従） ====================
