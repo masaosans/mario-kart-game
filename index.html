@@ -255,7 +255,7 @@ const gPos = groundGeo.attributes.position;
 for (let i = 0; i < gPos.count; i++) {
   const gx = gPos.getX(i), gy2 = gPos.getY(i); // PlaneGeometryはXY平面に配置
   const gz = getTerrainHeight(gx, gy2);
-  gPos.setZ(i, gz); // Zに書き込む（後でX軸回転してYにする）
+  gPos.setZ(i, -gz); // Zに書き込む（-Math.PI/2回転で-Z→+Yになるよう符号を反転）
 }
 groundGeo.computeVertexNormals();
 const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ color: 0x4a8c3f }));
