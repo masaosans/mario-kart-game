@@ -188,14 +188,32 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
-// ==================== 地形高さ取得（単一関数で統一） ====================
-function getTerrainHeight(x, z) {
-  // 直交座標ベースのサイン波合成で起伏を計算
-  let y = 0;
-  y += Math.sin(x * 0.004 + z * 0.002) * 18;   // 大きな丘
-  y += Math.sin(x * 0.01 + z * 0.006 + 1) * 10; // 中くらいの起伏
-  y += Math.cos(x * 0.02 - z * 0.015 + 2) * 5;  // 細かい凸凹
-  return Math.max(-20, Math.min(25, y));
+// ==================== 地形高さ取得（セグメントの高さを参照） ====================
+function getTerrainHeight(px, pz) {
+  // 最も近いセグメントのインデックスを取得
+  let minDist = Infinity, minIdx = 0;
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i];
+    const dx = px - s.x, dz = pz - s.z;
+    const d = dx * dx + dz * dz;
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  // 最も近いセグメントの高さを返す（補間版）
+  const prev = segments[(minIdx - 1 + numTrackPts) % numTrackPts];
+  const curr = segments[minIdx];
+  const next = segments[(minIdx + 1) % numTrackPts];
+  // 3点間の線形補間で滑らかに（簡易版：最も近いセグメントの高さに近い方を優先）
+  const dPrev = (px - prev.x) ** 2 + (pz - prev.z) ** 2;
+  const dCurr = (px - curr.x) ** 2 + (pz - curr.z) ** 2;
+  const dNext = (px - next.x) ** 2 + (pz - next.z) ** 2;
+  const minD = Math.min(dPrev, dCurr, dNext);
+  if (minD === dCurr) return curr.y;
+  if (minD === dPrev) {
+    // prevとcurrの間で補間
+    const t = Math.sqrt(dCurr / (dPrev + dCurr));
+    return curr.y * (1 - t) + prev.y * t;
+  }
+  return next.y;
 }
 
 // ==================== トラック定義 ====================
@@ -217,8 +235,13 @@ for (let i = 0; i < numTrackPts; i++) {
   const len = Math.sqrt(dx * dx + dz * dz);
   dx /= len; dz /= len;
 
-  // 地形高さ：単一関数で計算（セグメントのx,z座標から）
-  const y = getTerrainHeight(curr.x, curr.z);
+  // 地形高さ：パラメータtから計算（セグメントインデックスベース）
+  const t2 = i / numTrackPts * Math.PI * 2;
+  let y = 0;
+  y += Math.sin(t2 * 3) * 15;    // 大きな丘
+  y += Math.sin(t2 * 7 + 1) * 8; // 中くらいの起伏
+  y += Math.cos(t2 * 13 + 2) * 4;// 細かい凸凹
+  y = Math.max(-20, Math.min(25, y));
 
   segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx, y });
 }
