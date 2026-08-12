@@ -218,11 +218,24 @@ for (let i = 0; i < numTrackPts; i++) {
   segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx, y });
 }
 
-// ==================== 地面（グリッド付き） ====================
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(6000, 6000),
-  new THREE.MeshLambertMaterial({ color: 0x4a8c3f })
-);
+// ==================== 地面（地形起伏付き） ====================
+const groundSize = 6000;
+const groundSegs = 120; // 分割数：多いほど滑らかな起伏
+const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, groundSegs, groundSegs);
+// 頂点ごとに地形高さを計算してY座標をずらす（直交座標ベースのノイズ）
+const gPos = groundGeo.attributes.position;
+for (let i = 0; i < gPos.count; i++) {
+  const gx = gPos.getX(i), gy2 = gPos.getY(i); // PlaneGeometryはXY平面に配置
+  // 直交座標ベースのサイン波で起伏を生成（トラックの起伏と整合性のあるパターン）
+  let gz = 0;
+  gz += Math.sin(gx * 0.005) * Math.cos(gy2 * 0.003) * 18;   // 大きな丘
+  gz += Math.sin(gx * 0.012 + 1) * Math.cos(gy2 * 0.008 + 2) * 10; // 中くらいの起伏
+  gz += Math.sin(gx * 0.025 + gy2 * 0.02) * 5;               // 細かい凸凹
+  gz = Math.max(-20, Math.min(25, gz));
+  gPos.setZ(i, gz); // Zに書き込む（後でX軸回転してYにする）
+}
+groundGeo.computeVertexNormals();
+const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ color: 0x4a8c3f }));
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -1;
 ground.receiveShadow = true;
