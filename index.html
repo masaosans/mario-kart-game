@@ -242,13 +242,13 @@ const ground = new THREE.Mesh(
   new THREE.MeshLambertMaterial({ color: 0x4a8c3f })
 );
 ground.rotation.x = -Math.PI / 2;
-ground.position.y = 0;  // ← 地形追従：y=0固定（セグメントのyは相対オフセットとして扱う）
+ground.position.y = getTerrainHeight(0, 0);  // ← 地形追従：中心位置の地形高さに設定
 ground.receiveShadow = true;
 scene.add(ground);
 
 // グリッドライン（地面に）
 const gridHelper = new THREE.GridHelper(6000, 120, 0x3a7d2f, 0x3a7d2f);
-gridHelper.position.y = 0.1;  // ← 地面の上に配置
+gridHelper.position.y = getTerrainHeight(0, 0) + 0.1;  // ← 地面の上に配置
 scene.add(gridHelper);
 
 // ==================== 道路メッシュ ====================
