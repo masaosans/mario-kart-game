@@ -142,7 +142,6 @@ const GAME = {
   CAM_DIST: 18,             // カメラ距離
   CAM_HEIGHT: 10,           // カメラ高さ
   ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(ローカル+Z)を世界座標+Xに向けるオフセット
-  // angle=0 → +X方向、angle=π/2 → -Z方向（左旋回）、Y軸回転は反時計回り
 };
 
 // ==================== Three.js セットアップ ====================
@@ -158,7 +157,6 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// 照明強化
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3a7d3a, 0.6);
 scene.add(hemiLight);
@@ -176,7 +174,6 @@ dirLight.shadow.camera.top = 700;
 dirLight.shadow.camera.bottom = -700;
 scene.add(dirLight);
 
-// サブライト（陰を柔らかく）
 const fillLight = new THREE.DirectionalLight(0xc8d8ff, 0.3);
 fillLight.position.set(-300, 400, -200);
 scene.add(fillLight);
@@ -222,7 +219,6 @@ function getTerrainHeight(px, pz) {
     const d = (px - segments[i].x) ** 2 + (pz - segments[i].z) ** 2;
     if (d < minDist) { minDist = d; minIdx = i; }
   }
-  // 線形補間で滑らかに
   const curr = segments[minIdx];
   const prev = segments[(minIdx - 1 + numTrackPts) % numTrackPts];
   const next = segments[(minIdx + 1) % numTrackPts];
@@ -230,28 +226,12 @@ function getTerrainHeight(px, pz) {
   const dNext = (px - next.x) ** 2 + (pz - next.z) ** 2;
   const totalDist = dPrev + minDist + dNext;
   if (totalDist === 0) return curr.y;
-  // prevとnextの重み付き平均
   const tPrev = Math.sqrt(dPrev) / (Math.sqrt(dPrev) + Math.sqrt(minDist));
   const tNext = Math.sqrt(dNext) / (Math.sqrt(dNext) + Math.sqrt(minDist));
   return curr.y * (1 - tPrev * 0.5 - tNext * 0.5) + prev.y * tPrev * 0.5 + next.y * tNext * 0.5;
 }
 
-// ==================== 地面（グリッド付き） ====================
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(6000, 6000),
-  new THREE.MeshLambertMaterial({ color: 0x4a8c3f })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = getTerrainHeight(0, 0);  // ← 地形追従：中心位置の地形高さに設定
-ground.receiveShadow = true;
-scene.add(ground);
-
-// グリッドライン（地面に）
-const gridHelper = new THREE.GridHelper(6000, 120, 0x3a7d2f, 0x3a7d2f);
-gridHelper.position.y = getTerrainHeight(0, 0) + 0.1;  // ← 地面の上に配置
-scene.add(gridHelper);
-
-// ==================== 道路メッシュ ====================
+// ==================== 道路メッシュ（s.yで配置済み） ====================
 function createRoadMesh() {
   const hw = 40;
   for (let i = 0; i < numTrackPts; i++) {
@@ -499,7 +479,6 @@ function createCar(color, emoji) {
 // ==================== アイテムボックス（強化版） ====================
 function createItemBox(x, z) {
   const geo = new THREE.BoxGeometry(3, 3, 3);
-  // 各面に異なるテクスチャ
   const canvas = document.createElement('canvas');
   canvas.width = 64; canvas.height = 64;
   const ctx2d = canvas.getContext('2d');
@@ -520,7 +499,7 @@ function createItemBox(x, z) {
   light.position.set(x, 3, z);
   scene.add(light);
 
-  return { mesh, active: true, light, respawnTimer: 0 }; // respawnTimer初期値追加
+  return { mesh, active: true, light, respawnTimer: 0 };
 }
 
 // ==================== コーン（強化版） ====================
@@ -560,7 +539,6 @@ scene.add(playerCar);
 const player = {
   x: trackPoints[10].x, z: trackPoints[10].z,
   y: 0,
-  // angle初期値：セグメントの進行方向を向く（atan2(x,y)で方向ベクトルから角度算出）
   angle: Math.atan2(segments[10].tx, segments[10].tz),
   speed: 0,
   maxSpeed: GAME.MAX_SPEED,
@@ -639,25 +617,14 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 // ==================== タッチ操作：ハンドル（左側） ====================
 let steerInput = 0;
-let steerTarget = 0; // グローバル化: updatePlayerLocation()でも使用するため
+let steerTarget = 0;
 const steerArea = document.getElementById('steerArea');
 const steerKnob = document.getElementById('steerKnob');
-
-// アクティブなポインターIDのセット（複数指同時タッチ対応）
 const activePointerIds = new Set();
 
-function getSteerCenter() {
-  const rect = steerArea.getBoundingClientRect();
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-}
-
-// ハンドルエリア内のポインターを特定（座標で判定）
 function findPointerInSteerArea() {
-  // navigator.getCoalescedEvents() や e.pointerType は使えないので、
-  // documentの全active pointerからハンドルエリア内を探す
   for (const id of activePointerIds) {
     const rect = steerArea.getBoundingClientRect();
-    // このポインターの現在位置を取得（座標は毎フレーム更新済み）
     if (pointerPositions.has(id)) {
       const pos = pointerPositions.get(id);
       if (pos.x >= rect.left && pos.x <= rect.right &&
@@ -669,7 +636,6 @@ function findPointerInSteerArea() {
   return null;
 }
 
-// ポインター位置の追跡用マップ
 const pointerPositions = new Map();
 
 document.addEventListener('pointerdown', e => {
@@ -680,10 +646,8 @@ document.addEventListener('pointerdown', e => {
 document.addEventListener('pointermove', e => {
   pointerPositions.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  // ハンドルエリア内のポインターを特定
   const steerPtrId = findPointerInSteerArea();
   if (steerPtrId === null) {
-    // ハンドルエリア内に指がなければリセット
     steerInput = 0;
     steerKnob.style.transform = 'translate(-50%, -50%)';
     return;
@@ -697,14 +661,12 @@ document.addEventListener('pointermove', e => {
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
   steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-  // 左に動かす→左旋回（角度減少）、右に動かす→右旋回（角度増加）
   steerInput = Math.max(-1, Math.min(1, dx / halfW));
 });
 
 document.addEventListener('pointerup', e => {
   activePointerIds.delete(e.pointerId);
   pointerPositions.delete(e.pointerId);
-  // ハンドルエリア内のポインターがなくなったらリセット
   if (findPointerInSteerArea() === null) {
     steerInput = 0;
     steerKnob.style.transform = 'translate(-50%, -50%)';
@@ -802,14 +764,11 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  // タッチ: カメラ前方視点なので左ドラッグ→画面左旋回(角度増加)、右ドラッグ→画面右旋回(角度減少)
   steerTarget = -steerInput;
 
-  // キーボード: 矢印/WSでステアリング（タッチと加算）
   if (isLeft) steerTarget += 1;
   if (isRight) steerTarget -= 1;
 
-  // アクセル
   if (isAccel) {
     let spd = player.maxSpeed;
     if (player.boostTimer > 0) { spd *= GAME.BOOST_MULTIPLIER; player.boostTimer -= dt; }
@@ -821,32 +780,28 @@ function updatePlayer(dt) {
     if (player.speed < 0) player.speed = Math.min(0, player.speed + player.friction * dt);
   }
 
-  // ステアリング（角度を回転）- Three.js座標系に合わせる
   const steerAmount = steerTarget * player.maxSteerSpeed * dt;
   if (Math.abs(player.speed) > 0.1) {
-    // 速度が低いほどステアリング効きを落とす（実車のような挙動）
     const speedFactor = Math.min(1, Math.abs(player.speed) / GAME.STEER_FACTOR_MIN_SPEED);
     player.angle += steerAmount * speedFactor;
   }
 
-  // 位置更新：angle=0→+X方向、angle=π/2→-Z（左旋回）、反時計回り
+  // angle=0→+X方向、angle=π/2→-Z（左旋回）、反時計回り
   player.x += Math.cos(player.angle) * player.speed * dt;
   player.z -= Math.sin(player.angle) * player.speed * dt;
 
-  // パーティクル
   if (player.speed > 2 && Math.random() < 0.15) {
     addParticle(player.x, 1, player.z, 0xaaaaaa, 1);
   }
   if (player.hitTimer > 0) player.hitTimer -= dt;
 
-  // ラップチェック（スタート/ゴールライン通過判定）
+  // ラップチェック
   const startSeg = segments[0];
   const dx = player.x - startSeg.x;
   const dz = player.z - startSeg.z;
   const nearStart = Math.sqrt(dx*dx + dz*dz) < 50 && Math.abs(player.speed) > 1;
 
   if (nearStart && !player._crossedStart) {
-    // スタート地点に入った → ラップ完了
     player.lap++;
     if (player.lap > player.totalLaps) { finishRace(); return; }
   }
@@ -907,16 +862,14 @@ function checkCollisions() {
 
 // ==================== カメラ更新（チェイスカメラ） ====================
 function updateCamera() {
-  // カメラを車の後方に配置し、進行方向を見る（標準レーシングゲーム視点）
   camera.position.set(
     player.x - Math.cos(player.angle) * GAME.CAM_DIST,
-    GAME.CAM_HEIGHT + player.y, // プレイヤーの高さに合わせてカメラも調整
+    GAME.CAM_HEIGHT + player.y,
     player.z + Math.sin(player.angle) * GAME.CAM_DIST
   );
-  // 車の進行方向先を見つめる
   camera.lookAt(
     player.x + Math.cos(player.angle) * 15,
-    2 + player.y, // プレイヤーの高さに合わせて調整
+    2 + player.y,
     player.z - Math.sin(player.angle) * 15
   );
 }
@@ -936,7 +889,6 @@ function updateItemBoxes(time) {
     if (box.active && box.mesh.visible) {
       box.mesh.position.y = 1.5 + Math.sin(time * 3) * 0.5;
       box.mesh.rotation.y += 0.02;
-      // ライトも点滅
       box.light.intensity = 0.3 + Math.sin(time * 5) * 0.3;
     } else if (!box.active) {
       box.respawnTimer -= 1/60;
@@ -947,16 +899,12 @@ function updateItemBoxes(time) {
 
 // ==================== プレイヤー位置更新 ====================
 function updatePlayerLocation() {
-  // 地形の高さに合わせてY座標を補正（滑らかに）
   const targetY = getTerrainHeight(player.x, player.z);
-  player.y += (targetY - player.y) * 0.1; // 滑らかな追従
+  player.y += (targetY - player.y) * 0.1;
 
   playerCar.position.set(player.x, player.y, player.z);
-  // ExtrudeGeometryの前面方向（ローカル+Z）とrotation.y=0の向き（世界座標+X）が
-  // Math.PI/2ずれているため、オフセットを補正して進行方向を向かせる
   playerCar.rotation.y = player.angle + GAME.ROTATION_OFFSET;
 
-  // ステアリングの視覚的フィードバック（車体を少し傾ける）— steerTargetで実際の旋回方向に合わせる
   const tiltAngle = steerTarget * 0.15;
   playerCar.rotation.z = tiltAngle;
 }
