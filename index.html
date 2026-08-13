@@ -132,16 +132,15 @@ canvas { display: block; }
 <script>
 // ==================== 定数定義 ====================
 const GAME = {
-  MAX_SPEED: 3.5,           // 最大速度
-  ACCELERATION: 0.04,       // アクセル加速度
-  BRAKE_FORCE: 0.08,        // ブレーキ力
-  FRICTION: 0.015,          // 摩擦減速
-  MAX_STEER_SPEED: 0.04,    // ステアリング角速度
-  STEER_FACTOR_MIN_SPEED: 1,// 速度係数の基準値
-  BOOST_MULTIPLIER: 1.5,    // ブースト倍率
-  CAM_DIST: 18,             // カメラ距離
-  CAM_HEIGHT: 10,           // カメラ高さ
-  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(ローカル+Z)を世界座標+Xに向けるオフセット
+  MAX_SPEED: 3.5,
+  ACCELERATION: 0.04,
+  BRAKE_FORCE: 0.08,
+  FRICTION: 0.015,
+  MAX_STEER_SPEED: 0.04,
+  STEER_FACTOR_MIN_SPEED: 1,
+  BOOST_MULTIPLIER: 1.5,
+  CAM_DIST: 18,
+  CAM_HEIGHT: 10,
 };
 
 // ==================== Three.js セットアップ ====================
@@ -306,17 +305,18 @@ function createTrees() {
     const dist = 60 + Math.random() * 400;
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
 
-    // 幹
+    // 幹（地面から上に伸びる）
     const trunkH = 12 + Math.random() * 8;
     const trunk = new THREE.Mesh(
       new THREE.CylinderGeometry(1.5, 3, trunkH, 6),
       new THREE.MeshLambertMaterial({ color: 0x8B4513 })
     );
-    trunk.position.set(tx, s.y + trunkH / 2 - 1, tz);
+    // 地面の高さs.yの上に幹を立てる
+    trunk.position.set(tx, s.y + trunkH / 2, tz);
     trunk.castShadow = true;
     scene.add(trunk);
 
-    // 葉（複数レイヤー）
+    // 葉（複数レイヤー）- 幹の上部に配置
     const leafColors = [0x2d5a27, 0x3a7d42, 0x228B22];
     for (let j = 0; j < 3; j++) {
       const r = 6 + Math.random() * 6 - j * 1.5;
@@ -325,7 +325,8 @@ function createTrees() {
         new THREE.ConeGeometry(r, h, 6),
         new THREE.MeshLambertMaterial({ color: leafColors[j % 3] })
       );
-      leaves.position.set(tx, s.y + trunkH - 2 + j * 4, tz);
+      // 幹の上部（s.y + trunkH）の上に葉を配置
+      leaves.position.set(tx, s.y + trunkH + j * 4 - 2, tz);
       leaves.castShadow = true;
       scene.add(leaves);
     }
@@ -344,6 +345,7 @@ function createRocks() {
     const rockGeo = new THREE.DodecahedronGeometry(2 + Math.random() * 4);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
+    // 地面の高さs.yの上に岩を配置
     rock.position.set(tx, s.y + 1, tz);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.castShadow = true;
