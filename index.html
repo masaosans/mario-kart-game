@@ -198,15 +198,42 @@ for (let i = 0; i < numTrackPts; i++) {
   trackPoints.push({ x: Math.cos(t) * rx, z: Math.sin(t) * rz });
 }
 
+// セグメント生成（高さyを追加）
 const segments = [];
 for (let i = 0; i < numTrackPts; i++) {
   const curr = trackPoints[i];
   const next = trackPoints[(i + 1) % numTrackPts];
   const prev = trackPoints[(i - 1 + numTrackPts) % numTrackPts];
+
+  // 地形高さの計算（セグメントインデックスtに基づく）
+  const t2 = i / numTrackPts * Math.PI * 2;
+  let y = Math.sin(t2 * 3) * 15 + Math.sin(t2 * 7 + 1) * 8 + Math.cos(t2 * 13 + 2) * 4;
+
   let dx = next.x - prev.x, dz = next.z - prev.z;
   const len = Math.sqrt(dx * dx + dz * dz);
   dx /= len; dz /= len;
-  segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx });
+  segments.push({ x: curr.x, z: curr.z, y: y, tx: dx, tz: dz, nx: -dz, nz: dx });
+}
+
+// ==================== 地形高さ取得関数（セグメントyから補間） ====================
+function getTerrainHeight(px, pz) {
+  let minDist = Infinity, minIdx = 0;
+  for (let i = 0; i < numTrackPts; i++) {
+    const d = (px - segments[i].x) ** 2 + (pz - segments[i].z) ** 2;
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  // 線形補間で滑らかに
+  const curr = segments[minIdx];
+  const prev = segments[(minIdx - 1 + numTrackPts) % numTrackPts];
+  const next = segments[(minIdx + 1) % numTrackPts];
+  const dPrev = (px - prev.x) ** 2 + (pz - prev.z) ** 2;
+  const dNext = (px - next.x) ** 2 + (pz - next.z) ** 2;
+  const totalDist = dPrev + minDist + dNext;
+  if (totalDist === 0) return curr.y;
+  // prevとnextの重み付き平均
+  const tPrev = Math.sqrt(dPrev) / (Math.sqrt(dPrev) + Math.sqrt(minDist));
+  const tNext = Math.sqrt(dNext) / (Math.sqrt(dNext) + Math.sqrt(minDist));
+  return curr.y * (1 - tPrev * 0.5 - tNext * 0.5) + prev.y * tPrev * 0.5 + next.y * tNext * 0.5;
 }
 
 // ==================== 地面（グリッド付き） ====================
@@ -231,10 +258,10 @@ function createRoadMesh() {
     const s = segments[i], ns = segments[(i + 1) % numTrackPts];
     const geo = new THREE.BufferGeometry();
     const v = new Float32Array([
-      s.x - s.nx * hw, 0.1, s.z - s.nz * hw,
-      s.x + s.nx * hw, 0.1, s.z + s.nz * hw,
-      ns.x - ns.nx * hw, 0.1, ns.z - ns.nz * hw,
-      ns.x + ns.nx * hw, 0.1, ns.z + ns.nz * hw,
+      s.x - s.nx * hw, s.y + 0.1, s.z - s.nz * hw,
+      s.x + s.nx * hw, s.y + 0.1, s.z + s.nz * hw,
+      ns.x - ns.nx * hw, ns.y + 0.1, ns.z - ns.nz * hw,
+      ns.x + ns.nx * hw, ns.y + 0.1, ns.z + ns.nz * hw,
     ]);
     geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
     geo.setIndex([0,2,1,1,2,3]);
@@ -254,8 +281,8 @@ function createCurbMesh() {
       const isRed = Math.floor(i / 3) % 2 === 0;
       const geo = new THREE.BoxGeometry(8, 1.5, 6);
       const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: isRed ? 0xe74c3c : 0xffffff }));
-      mesh.position.set(s.x + s.nx * hw * side, 0.75, s.z + s.nz * hw * side);
-      mesh.lookAt(ns.x + ns.nx * hw * side, 0.75, ns.z + ns.nz * hw * side);
+      mesh.position.set(s.x + s.nx * hw * side, s.y + 0.75, s.z + s.nz * hw * side);
+      mesh.lookAt(ns.x + ns.nx * hw * side, ns.y + 0.75, ns.z + ns.nz * hw * side);
       mesh.castShadow = true;
       scene.add(mesh);
     });
@@ -271,7 +298,7 @@ function createStartLine() {
         const t = c * 12 - 40 + 6;
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshLambertMaterial({ color: 0xffffff }));
         mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(s.x + s.nx * t, 0.15, s.z + s.nz * t);
+        mesh.position.set(s.x + s.nx * t, s.y + 0.15, s.z + s.nz * t);
         scene.add(mesh);
       }
     }
@@ -285,7 +312,7 @@ function createCenterLine() {
     const geo = new THREE.PlaneGeometry(3, 15);
     const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(s.x, 0.16, s.z);
+    mesh.position.set(s.x, s.y + 0.16, s.z);
     scene.add(mesh);
   }
 }
@@ -305,7 +332,7 @@ function createTrees() {
       new THREE.CylinderGeometry(1.5, 3, trunkH, 6),
       new THREE.MeshLambertMaterial({ color: 0x8B4513 })
     );
-    trunk.position.set(tx, trunkH / 2 - 1, tz);
+    trunk.position.set(tx, s.y + trunkH / 2 - 1, tz);
     trunk.castShadow = true;
     scene.add(trunk);
 
@@ -318,7 +345,7 @@ function createTrees() {
         new THREE.ConeGeometry(r, h, 6),
         new THREE.MeshLambertMaterial({ color: leafColors[j % 3] })
       );
-      leaves.position.set(tx, trunkH - 2 + j * 4, tz);
+      leaves.position.set(tx, s.y + trunkH - 2 + j * 4, tz);
       leaves.castShadow = true;
       scene.add(leaves);
     }
@@ -337,7 +364,7 @@ function createRocks() {
     const rockGeo = new THREE.DodecahedronGeometry(2 + Math.random() * 4);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
-    rock.position.set(tx, 1, tz);
+    rock.position.set(tx, s.y + 1, tz);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.castShadow = true;
     scene.add(rock);
@@ -546,6 +573,9 @@ const player = {
   finished: false, finishTime: 0,
   item: null, boostTimer: 0, hitTimer: 0,
 };
+
+// プレイヤー初期位置のY座標を地形に合わせて設定
+player.y = getTerrainHeight(player.x, player.z);
 
 // ==================== AIカー ====================
 const aiCars = [];
@@ -880,13 +910,13 @@ function updateCamera() {
   // カメラを車の後方に配置し、進行方向を見る（標準レーシングゲーム視点）
   camera.position.set(
     player.x - Math.cos(player.angle) * GAME.CAM_DIST,
-    GAME.CAM_HEIGHT,
+    GAME.CAM_HEIGHT + player.y, // プレイヤーの高さに合わせてカメラも調整
     player.z + Math.sin(player.angle) * GAME.CAM_DIST
   );
   // 車の進行方向先を見つめる
   camera.lookAt(
     player.x + Math.cos(player.angle) * 15,
-    2,
+    2 + player.y, // プレイヤーの高さに合わせて調整
     player.z - Math.sin(player.angle) * 15
   );
 }
@@ -894,7 +924,8 @@ function updateCamera() {
 // ==================== AI位置更新 ====================
 function updateAILocations() {
   aiCars.forEach(ai => {
-    ai.mesh.position.set(ai.x, 0, ai.z);
+    const terrainY = getTerrainHeight(ai.x, ai.z);
+    ai.mesh.position.set(ai.x, terrainY, ai.z);
     ai.mesh.rotation.y = ai.angle;
   });
 }
@@ -916,6 +947,10 @@ function updateItemBoxes(time) {
 
 // ==================== プレイヤー位置更新 ====================
 function updatePlayerLocation() {
+  // 地形の高さに合わせてY座標を補正（滑らかに）
+  const targetY = getTerrainHeight(player.x, player.z);
+  player.y += (targetY - player.y) * 0.1; // 滑らかな追従
+
   playerCar.position.set(player.x, player.y, player.z);
   // ExtrudeGeometryの前面方向（ローカル+Z）とrotation.y=0の向き（世界座標+X）が
   // Math.PI/2ずれているため、オフセットを補正して進行方向を向かせる
