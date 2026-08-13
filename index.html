@@ -230,7 +230,7 @@ function getTerrainHeight(px, pz) {
   return curr.y * (1 - tPrev * 0.5 - tNext * 0.5) + prev.y * tPrev * 0.5 + next.y * tNext * 0.5;
 }
 
-// ==================== 道路メッシュ（s.yで配置済み） ====================
+// ==================== 道路メッシュ（s.yで配置） ====================
 function createRoadMesh() {
   const hw = 40;
   for (let i = 0; i < numTrackPts; i++) {
