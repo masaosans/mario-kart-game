@@ -202,8 +202,10 @@ for (let i = 0; i < numTrackPts; i++) {
   const prev = trackPoints[(i - 1 + numTrackPts) % numTrackPts];
 
   // 地形高さの計算（セグメントインデックスtに基づく）
+  // ±27 の範囲 → +30 オフセットで常に正の値に（最小値が約+3になるように）
   const t2 = i / numTrackPts * Math.PI * 2;
   let y = Math.sin(t2 * 3) * 15 + Math.sin(t2 * 7 + 1) * 8 + Math.cos(t2 * 13 + 2) * 4;
+  y += 30; // 地面の下に潜らないようにオフセット
 
   let dx = next.x - prev.x, dz = next.z - prev.z;
   const len = Math.sqrt(dx * dx + dz * dz);
