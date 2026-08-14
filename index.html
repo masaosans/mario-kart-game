@@ -215,50 +215,30 @@ for (let i = 0; i < numTrackPts; i++) {
 }
 
 // ==================== 地形高さ取得関数（修正版） ====================
-// 最も近いセグメントペアを見つけ、その2点間で線形補間する
+// 最も近いセグメントを見つけ、その両端との距離比で線形補間する
 function getTerrainHeight(px, pz) {
   let minDist = Infinity, bestIdx = 0;
   for (let i = 0; i < numTrackPts; i++) {
     const seg = segments[i];
-    // セグメントからの垂直距離（セグメント方向ベクトルとの直交距離）
+    // セグメントからの垂直距離（セグメント法線方向への距離）
     const dx = px - seg.x, dz = pz - seg.z;
-    // 法線方向への距離
     const perpDist = Math.abs(dx * seg.nx + dz * seg.nz);
     if (perpDist < minDist) { minDist = perpDist; bestIdx = i; }
   }
 
-  // 最も近いセグメントとその前後のセグメントを取得
+  // 最も近いセグメントの両端との距離比で線形補間
   const curr = segments[bestIdx];
-  const prev = segments[(bestIdx - 1 + numTrackPts) % numTrackPts];
   const next = segments[(bestIdx + 1) % numTrackPts];
 
-  // セグメント方向ベクトルへの射影距離を計算（どのセグメント間にあるか）
-  const dx = px - curr.x, dz = pz - curr.z;
-  const projCurr = dx * curr.tx + dz * curr.tz; // 現在のセグメント方向への射影
+  const dCurr = Math.sqrt((px - curr.x) ** 2 + (pz - curr.z) ** 2);
+  const dNext = Math.sqrt((px - next.x) ** 2 + (pz - next.z) ** 2);
+  const totalDist = dCurr + dNext;
 
-  let t; // 0=prev, 1=current, 2=next の間の補間係数
-  if (projCurr < 0) {
-    // prevとcurrentの間
-    const dPrev = Math.sqrt((px - prev.x)**2 + (pz - prev.z)**2);
-    const dCurr = Math.sqrt(dx*dx + dz*dz);
-    t = dCurr / (dPrev + dCurr); // 0=prev, 1=current
-  } else if (projCurr > 60) {
-    // currentとnextの間（セグメント長は約40）
-    const dx2 = px - next.x, dz2 = pz - next.z;
-    const dCurr = Math.sqrt(dx*dx + dz*dz);
-    const dNext = Math.sqrt(dx2*dx2 + dz2*dz2);
-    t = 1 + dCurr / (dCurr + dNext); // 1=current, 2=next
-  } else {
-    // currentセグメント上
-    t = 1;
-  }
+  if (totalDist === 0) return curr.y;
+  // t=0でcurr, t=1でnext の補間係数
+  const t = dCurr / totalDist;
 
-  // 線形補間: prev.y * (1-t) + curr.y * (t-0) + next.y * (t-1)
-  if (t <= 1) {
-    return prev.y * (1 - t) + curr.y * t;
-  } else {
-    return curr.y * (2 - t) + next.y * (t - 1);
-  }
+  return curr.y * (1 - t) + next.y * t;
 }
 
 // ==================== 道路メッシュ（s.yで配置） ====================
