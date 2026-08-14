@@ -99,7 +99,6 @@ canvas { display: block; }
   <p style="color:rgba(255,255,255,0.6); margin-top:20px; font-size:clamp(0.7rem,2vw,0.9rem)">
     PC: WASD/矢印キー | スマホ: ハンドル＋アクセル
   </p>
-  <p id="updateTime" style="color:rgba(255,255,255,0.4); margin-top:10px; font-size:clamp(0.6rem,1.5vw,0.8rem)"></p>
 </div>
 
 <div id="hud">
@@ -133,15 +132,17 @@ canvas { display: block; }
 <script>
 // ==================== 定数定義 ====================
 const GAME = {
-  MAX_SPEED: 3.5,
-  ACCELERATION: 0.04,
-  BRAKE_FORCE: 0.08,
-  FRICTION: 0.015,
-  MAX_STEER_SPEED: 0.04,
-  STEER_FACTOR_MIN_SPEED: 1,
-  BOOST_MULTIPLIER: 1.5,
-  CAM_DIST: 18,
-  CAM_HEIGHT: 10,
+  MAX_SPEED: 3.5,           // 最大速度
+  ACCELERATION: 0.04,       // アクセル加速度
+  BRAKE_FORCE: 0.08,        // ブレーキ力
+  FRICTION: 0.015,          // 摩擦減速
+  MAX_STEER_SPEED: 0.04,    // ステアリング角速度
+  STEER_FACTOR_MIN_SPEED: 1,// 速度係数の基準値
+  BOOST_MULTIPLIER: 1.5,    // ブースト倍率
+  CAM_DIST: 18,             // カメラ距離
+  CAM_HEIGHT: 10,           // カメラ高さ
+  ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(ローカル+Z)を世界座標+Xに向けるオフセット
+  // angle=0 → +X方向、angle=π/2 → -Z方向（左旋回）、Y軸回転は反時計回り
 };
 
 // ==================== Three.js セットアップ ====================
@@ -157,6 +158,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
+// 照明強化
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3a7d3a, 0.6);
 scene.add(hemiLight);
@@ -174,6 +176,7 @@ dirLight.shadow.camera.top = 700;
 dirLight.shadow.camera.bottom = -700;
 scene.add(dirLight);
 
+// サブライト（陰を柔らかく）
 const fillLight = new THREE.DirectionalLight(0xc8d8ff, 0.3);
 fillLight.position.set(-300, 400, -200);
 scene.add(fillLight);
@@ -185,6 +188,34 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
+// ==================== 地形高さ取得（セグメントの高さを参照） ====================
+function getTerrainHeight(px, pz) {
+  // 最も近いセグメントのインデックスを取得
+  let minDist = Infinity, minIdx = 0;
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i];
+    const dx = px - s.x, dz = pz - s.z;
+    const d = dx * dx + dz * dz;
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  // 最も近いセグメントの高さを返す（補間版）
+  const prev = segments[(minIdx - 1 + numTrackPts) % numTrackPts];
+  const curr = segments[minIdx];
+  const next = segments[(minIdx + 1) % numTrackPts];
+  // 3点間の線形補間で滑らかに（簡易版：最も近いセグメントの高さに近い方を優先）
+  const dPrev = (px - prev.x) ** 2 + (pz - prev.z) ** 2;
+  const dCurr = (px - curr.x) ** 2 + (pz - curr.z) ** 2;
+  const dNext = (px - next.x) ** 2 + (pz - next.z) ** 2;
+  const minD = Math.min(dPrev, dCurr, dNext);
+  if (minD === dCurr) return curr.y;
+  if (minD === dPrev) {
+    // prevとcurrの間で補間
+    const t = Math.sqrt(dCurr / (dPrev + dCurr));
+    return curr.y * (1 - t) + prev.y * t;
+  }
+  return next.y;
+}
+
 // ==================== トラック定義 ====================
 const trackPoints = [];
 const numTrackPts = 200;
@@ -195,82 +226,60 @@ for (let i = 0; i < numTrackPts; i++) {
   trackPoints.push({ x: Math.cos(t) * rx, z: Math.sin(t) * rz });
 }
 
-// セグメント生成（高さyを追加）
 const segments = [];
 for (let i = 0; i < numTrackPts; i++) {
   const curr = trackPoints[i];
   const next = trackPoints[(i + 1) % numTrackPts];
   const prev = trackPoints[(i - 1 + numTrackPts) % numTrackPts];
-
-  // 地形高さの計算（セグメントインデックスtに基づく）
-  // ±27 の範囲 → +30 オフセットで常に正の値に（最小値が約+3になるように）
-  const t2 = i / numTrackPts * Math.PI * 2;
-  let y = Math.sin(t2 * 3) * 15 + Math.sin(t2 * 7 + 1) * 8 + Math.cos(t2 * 13 + 2) * 4;
-  y += 30; // 地面の下に潜らないようにオフセット
-
   let dx = next.x - prev.x, dz = next.z - prev.z;
   const len = Math.sqrt(dx * dx + dz * dz);
   dx /= len; dz /= len;
-  segments.push({ x: curr.x, z: curr.z, y: y, tx: dx, tz: dz, nx: -dz, nz: dx });
+
+  // 地形高さ：パラメータtから計算（セグメントインデックスベース）
+  const t2 = i / numTrackPts * Math.PI * 2;
+  let y = 0;
+  y += Math.sin(t2 * 3) * 15;    // 大きな丘
+  y += Math.sin(t2 * 7 + 1) * 8; // 中くらいの起伏
+  y += Math.cos(t2 * 13 + 2) * 4;// 細かい凸凹
+  y = Math.max(-20, Math.min(25, y));
+
+  segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx, y });
 }
 
-// ==================== 地形高さ取得関数（修正版） ====================
-function getTerrainHeight(px, pz) {
-  let minDist = Infinity, bestIdx = 0;
-  for (let i = 0; i < numTrackPts; i++) {
-    const seg = segments[i];
-    // セグメントからの垂直距離（セグメント方向ベクトルとの直交距離）
-    const dx = px - seg.x, dz = pz - seg.z;
-    // 法線方向への距離
-    const perpDist = Math.abs(dx * seg.nx + dz * seg.nz);
-    if (perpDist < minDist) { minDist = perpDist; bestIdx = i; }
-  }
-
-  // 最も近いセグメントとその前後のセグメントを取得
-  const curr = segments[bestIdx];
-  const prev = segments[(bestIdx - 1 + numTrackPts) % numTrackPts];
-  const next = segments[(bestIdx + 1) % numTrackPts];
-
-  // セグメント方向ベクトルへの射影距離を計算（どのセグメント間にあるか）
-  const dx = px - curr.x, dz = pz - curr.z;
-  const projCurr = dx * curr.tx + dz * curr.tz; // 現在のセグメント方向への射影
-
-  let t; // 0=prev, 1=current, 2=next の間の補間係数
-  if (projCurr < 0) {
-    // prevとcurrentの間
-    const dPrev = Math.sqrt((px - prev.x)**2 + (pz - prev.z)**2);
-    const dCurr = Math.sqrt(dx*dx + dz*dz);
-    t = dCurr / (dPrev + dCurr); // 0=prev, 1=current
-  } else if (projCurr > 40) {
-    // currentとnextの間（セグメント長は約40）
-    const dx2 = px - next.x, dz2 = pz - next.z;
-    const dCurr = Math.sqrt(dx*dx + dz*dz);
-    const dNext = Math.sqrt(dx2*dx2 + dz2*dz2);
-    t = 1 + dCurr / (dCurr + dNext); // 1=current, 2=next
-  } else {
-    // currentセグメント上
-    t = 1;
-  }
-
-  // 線形補間: prev.y * (1-t) + curr.y * (t-0) + next.y * (t-1)
-  if (t <= 1) {
-    return prev.y * (1 - t) + curr.y * t;
-  } else {
-    return curr.y * (2 - t) + next.y * (t - 1);
-  }
+// ==================== 地面（地形起伏付き） ====================
+const groundSize = 6000;
+const groundSegs = 120; // 分割数：多いほど滑らかな起伏
+const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, groundSegs, groundSegs);
+// 頂点ごとに地形高さを計算してY座標をずらす（同じgetTerrainHeight関数を使用）
+const gPos = groundGeo.attributes.position;
+for (let i = 0; i < gPos.count; i++) {
+  const gx = gPos.getX(i), gy2 = gPos.getY(i); // PlaneGeometryはXY平面に配置
+  const gz = getTerrainHeight(gx, gy2);
+  gPos.setZ(i, -gz); // Zに書き込む（-Math.PI/2回転で-Z→+Yになるよう符号を反転）
 }
+groundGeo.computeVertexNormals();
+const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ color: 0x4a8c3f }));
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = 0;
+ground.receiveShadow = true;
+scene.add(ground);
 
-// ==================== 道路メッシュ（s.yで配置） ====================
+// グリッドライン（地面に）
+const gridHelper = new THREE.GridHelper(6000, 120, 0x3a7d2f, 0x3a7d2f);
+gridHelper.position.y = -0.5;
+scene.add(gridHelper);
+
+// ==================== 道路メッシュ（地形追従） ====================
 function createRoadMesh() {
   const hw = 40;
   for (let i = 0; i < numTrackPts; i++) {
     const s = segments[i], ns = segments[(i + 1) % numTrackPts];
     const geo = new THREE.BufferGeometry();
     const v = new Float32Array([
-      s.x - s.nx * hw, s.y + 0.1, s.z - s.nz * hw,
-      s.x + s.nx * hw, s.y + 0.1, s.z + s.nz * hw,
-      ns.x - ns.nx * hw, ns.y + 0.1, ns.z - ns.nz * hw,
-      ns.x + ns.nx * hw, ns.y + 0.1, ns.z + ns.nz * hw,
+      s.x - s.nx * hw, s.y, s.z - s.nz * hw,
+      s.x + s.nx * hw, s.y, s.z + s.nz * hw,
+      ns.x - ns.nx * hw, ns.y, ns.z - ns.nz * hw,
+      ns.x + ns.nx * hw, ns.y, ns.z + ns.nz * hw,
     ]);
     geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
     geo.setIndex([0,2,1,1,2,3]);
@@ -281,7 +290,7 @@ function createRoadMesh() {
   }
 }
 
-// ==================== 縁石 ====================
+// ==================== 縁石（地形追従） ====================
 function createCurbMesh() {
   const hw = 43;
   for (let i = 0; i < numTrackPts; i++) {
@@ -298,7 +307,7 @@ function createCurbMesh() {
   }
 }
 
-// ==================== スタート/ゴールライン ====================
+// ==================== スタート/ゴールライン（地形追従） ====================
 function createStartLine() {
   const s = segments[0];
   for (let r = 0; r < 3; r++) {
@@ -314,7 +323,7 @@ function createStartLine() {
   }
 }
 
-// ==================== 中央線（点線） ====================
+// ==================== 中央線（点線、地形追従） ====================
 function createCenterLine() {
   for (let i = 0; i < numTrackPts; i += 4) {
     const s = segments[i];
@@ -327,26 +336,33 @@ function createCenterLine() {
 }
 
 // ==================== 木々（強化版） ====================
+const treesData = [];
 function createTrees() {
   for (let i = 0; i < 80; i++) {
     const segIdx = Math.floor(Math.random() * numTrackPts);
     const s = segments[segIdx];
     const side = Math.random() > 0.5 ? 1 : -1;
-    const dist = 60 + Math.random() * 400;
+    // 木もトラック寄りに（一部はコース端に）
+    let dist;
+    if (Math.random() < 0.4) {
+      dist = 35 + Math.random() * 20; // 40%はコース端寄り
+    } else {
+      dist = 60 + Math.random() * 150;
+    }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
 
-    // 幹（地面から上に伸びる）
+    // 幹
     const trunkH = 12 + Math.random() * 8;
+    const trunkRadius = 3;
     const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.5, 3, trunkH, 6),
+      new THREE.CylinderGeometry(1.5, trunkRadius, trunkH, 6),
       new THREE.MeshLambertMaterial({ color: 0x8B4513 })
     );
-    // 地面の高さs.yの上に幹を立てる
-    trunk.position.set(tx, s.y + trunkH / 2, tz);
+    trunk.position.set(tx, trunkH / 2 - 1, tz);
     trunk.castShadow = true;
     scene.add(trunk);
 
-    // 葉（複数レイヤー）- 幹の上部に配置
+    // 葉（複数レイヤー）
     const leafColors = [0x2d5a27, 0x3a7d42, 0x228B22];
     for (let j = 0; j < 3; j++) {
       const r = 6 + Math.random() * 6 - j * 1.5;
@@ -355,31 +371,41 @@ function createTrees() {
         new THREE.ConeGeometry(r, h, 6),
         new THREE.MeshLambertMaterial({ color: leafColors[j % 3] })
       );
-      // 幹の上部（s.y + trunkH）の上に葉を配置
-      leaves.position.set(tx, s.y + trunkH + j * 4 - 2, tz);
+      leaves.position.set(tx, trunkH - 2 + j * 4, tz);
       leaves.castShadow = true;
       scene.add(leaves);
     }
+
+    treesData.push({ x: tx, z: tz, radius: trunkRadius });
   }
 }
 
-// ==================== 装飾：岩 ====================
+// ==================== 岩（衝突判定付き） ====================
+const rocksData = [];
 function createRocks() {
   for (let i = 0; i < 30; i++) {
     const segIdx = Math.floor(Math.random() * numTrackPts);
     const s = segments[segIdx];
     const side = Math.random() > 0.5 ? 1 : -1;
-    const dist = trackPoints.length > 0 ? (60 + Math.random() * 300) : 200;
+    // 岩をトラック寄りに配置（一部はコース上に）
+    let dist;
+    if (Math.random() < 0.3) {
+      dist = 15 + Math.random() * 25; // 30%の確率でコース上またはすぐ横
+    } else {
+      dist = 45 + Math.random() * 80; // 70%は少し離す
+    }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
 
-    const rockGeo = new THREE.DodecahedronGeometry(2 + Math.random() * 4);
+    const radius = 2 + Math.random() * 3.5;
+    const rockGeo = new THREE.DodecahedronGeometry(radius);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
-    // 地面の高さs.yの上に岩を配置
-    rock.position.set(tx, s.y + 1, tz);
+    rock.position.set(tx, radius * 0.5, tz);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.castShadow = true;
     scene.add(rock);
+
+    rocksData.push({ mesh: rock, x: tx, z: tz, radius });
   }
 }
 
@@ -508,9 +534,22 @@ function createCar(color, emoji) {
   return group;
 }
 
-// ==================== アイテムボックス（強化版） ====================
+// ==================== セグメント取得（プレイヤーの現在位置から最も近いセグメント） ====================
+function getNearestSegment(px, pz) {
+  let minDist = Infinity, minIdx = 0;
+  for (let i = 0; i < numTrackPts; i++) {
+    const s = segments[i];
+    const dx = px - s.x, dz = pz - s.z;
+    const d = dx * dx + dz * dz;
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  return minIdx;
+}
+
+// ==================== アイテムボックス（強化版、地形追従） ====================
 function createItemBox(x, z) {
   const geo = new THREE.BoxGeometry(3, 3, 3);
+  // 各面に異なるテクスチャ
   const canvas = document.createElement('canvas');
   canvas.width = 64; canvas.height = 64;
   const ctx2d = canvas.getContext('2d');
@@ -531,17 +570,18 @@ function createItemBox(x, z) {
   light.position.set(x, 3, z);
   scene.add(light);
 
-  return { mesh, active: true, light, respawnTimer: 0 };
+  return { mesh, active: true, light, respawnTimer: 0 }; // respawnTimer初期値追加
 }
 
-// ==================== コーン（強化版） ====================
+// ==================== コーン（強化版、地形追従） ====================
 function createCone(x, z) {
+  const ty = getTerrainHeight(x, z);
   const group = new THREE.Group();
   const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5, 4, 8), new THREE.MeshPhongMaterial({ color: 0xe74c3c }));
   cone.position.y = 2; cone.castShadow = true; group.add(cone);
   const stripe = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.5, 8), new THREE.MeshPhongMaterial({ color: 0xffffff }));
   stripe.position.y = 2; group.add(stripe);
-  group.position.set(x, 0, z); scene.add(group);
+  group.position.set(x, ty, z); scene.add(group);
   return { group, hit: false };
 }
 
@@ -570,7 +610,8 @@ scene.add(playerCar);
 
 const player = {
   x: trackPoints[10].x, z: trackPoints[10].z,
-  y: 0,
+  y: segments[10].y, // 地形高さに初期化
+  // angle初期値：セグメントの進行方向を向く（atan2(x,y)で方向ベクトルから角度算出）
   angle: Math.atan2(segments[10].tx, segments[10].tz),
   speed: 0,
   maxSpeed: GAME.MAX_SPEED,
@@ -583,9 +624,6 @@ const player = {
   finished: false, finishTime: 0,
   item: null, boostTimer: 0, hitTimer: 0,
 };
-
-// プレイヤー初期位置のY座標を地形に合わせて設定
-player.y = getTerrainHeight(player.x, player.z);
 
 // ==================== AIカー ====================
 const aiCars = [];
@@ -649,14 +687,25 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 // ==================== タッチ操作：ハンドル（左側） ====================
 let steerInput = 0;
-let steerTarget = 0;
+let steerTarget = 0; // グローバル化: updatePlayerLocation()でも使用するため
 const steerArea = document.getElementById('steerArea');
 const steerKnob = document.getElementById('steerKnob');
+
+// アクティブなポインターIDのセット（複数指同時タッチ対応）
 const activePointerIds = new Set();
 
+function getSteerCenter() {
+  const rect = steerArea.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+// ハンドルエリア内のポインターを特定（座標で判定）
 function findPointerInSteerArea() {
+  // navigator.getCoalescedEvents() や e.pointerType は使えないので、
+  // documentの全active pointerからハンドルエリア内を探す
   for (const id of activePointerIds) {
     const rect = steerArea.getBoundingClientRect();
+    // このポインターの現在位置を取得（座標は毎フレーム更新済み）
     if (pointerPositions.has(id)) {
       const pos = pointerPositions.get(id);
       if (pos.x >= rect.left && pos.x <= rect.right &&
@@ -668,6 +717,7 @@ function findPointerInSteerArea() {
   return null;
 }
 
+// ポインター位置の追跡用マップ
 const pointerPositions = new Map();
 
 document.addEventListener('pointerdown', e => {
@@ -678,8 +728,10 @@ document.addEventListener('pointerdown', e => {
 document.addEventListener('pointermove', e => {
   pointerPositions.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+  // ハンドルエリア内のポインターを特定
   const steerPtrId = findPointerInSteerArea();
   if (steerPtrId === null) {
+    // ハンドルエリア内に指がなければリセット
     steerInput = 0;
     steerKnob.style.transform = 'translate(-50%, -50%)';
     return;
@@ -693,12 +745,14 @@ document.addEventListener('pointermove', e => {
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
   steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  // 左に動かす→左旋回（角度減少）、右に動かす→右旋回（角度増加）
   steerInput = Math.max(-1, Math.min(1, dx / halfW));
 });
 
 document.addEventListener('pointerup', e => {
   activePointerIds.delete(e.pointerId);
   pointerPositions.delete(e.pointerId);
+  // ハンドルエリア内のポインターがなくなったらリセット
   if (findPointerInSteerArea() === null) {
     steerInput = 0;
     steerKnob.style.transform = 'translate(-50%, -50%)';
@@ -796,11 +850,14 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
+  // タッチ: カメラ前方視点なので左ドラッグ→画面左旋回(角度増加)、右ドラッグ→画面右旋回(角度減少)
   steerTarget = -steerInput;
 
+  // キーボード: 矢印/WSでステアリング（タッチと加算）
   if (isLeft) steerTarget += 1;
   if (isRight) steerTarget -= 1;
 
+  // アクセル
   if (isAccel) {
     let spd = player.maxSpeed;
     if (player.boostTimer > 0) { spd *= GAME.BOOST_MULTIPLIER; player.boostTimer -= dt; }
@@ -812,28 +869,36 @@ function updatePlayer(dt) {
     if (player.speed < 0) player.speed = Math.min(0, player.speed + player.friction * dt);
   }
 
+  // ステアリング（角度を回転）- Three.js座標系に合わせる
   const steerAmount = steerTarget * player.maxSteerSpeed * dt;
   if (Math.abs(player.speed) > 0.1) {
+    // 速度が低いほどステアリング効きを落とす（実車のような挙動）
     const speedFactor = Math.min(1, Math.abs(player.speed) / GAME.STEER_FACTOR_MIN_SPEED);
     player.angle += steerAmount * speedFactor;
   }
 
-  // angle=0→+X方向、angle=π/2→-Z（左旋回）、反時計回り
+  // 位置更新：angle=0→+X方向、angle=π/2→-Z（左旋回）、反時計回り
   player.x += Math.cos(player.angle) * player.speed * dt;
   player.z -= Math.sin(player.angle) * player.speed * dt;
 
+  // 地形追従：プレイヤーの現在位置に最も近いセグメントの高さにYを合わせる
+  const terrainY = getTerrainHeight(player.x, player.z);
+  player.y += (terrainY - player.y) * 0.15; // スムーズに追従
+
+  // パーティクル
   if (player.speed > 2 && Math.random() < 0.15) {
     addParticle(player.x, 1, player.z, 0xaaaaaa, 1);
   }
   if (player.hitTimer > 0) player.hitTimer -= dt;
 
-  // ラップチェック
+  // ラップチェック（スタート/ゴールライン通過判定）
   const startSeg = segments[0];
   const dx = player.x - startSeg.x;
   const dz = player.z - startSeg.z;
   const nearStart = Math.sqrt(dx*dx + dz*dz) < 50 && Math.abs(player.speed) > 1;
 
   if (nearStart && !player._crossedStart) {
+    // スタート地点に入った → ラップ完了
     player.lap++;
     if (player.lap > player.totalLaps) { finishRace(); return; }
   }
@@ -890,37 +955,73 @@ function checkCollisions() {
       addParticle(player.x, 2, player.z, 0xe74c3c, 6);
     }
   });
+
+  // 岩との衝突判定
+  rocksData.forEach(rock => {
+    if (player.hitTimer > 0) return;
+    const dx = player.x - rock.x;
+    const dz = player.z - rock.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < rock.radius + 2.5) { // 2.5 = プレイヤーの半径近似
+      const pushAngle = Math.atan2(dz, dx);
+      player.x += Math.cos(pushAngle) * (rock.radius + 1);
+      player.z += Math.sin(pushAngle) * (rock.radius + 1);
+      player.speed *= 0.3;
+      player.hitTimer = 45;
+      addParticle(rock.x, 2, rock.z, 0x808080, 10);
+    }
+  });
+
+  // 木との衝突判定（幹のみ）
+  treesData.forEach(tree => {
+    if (player.hitTimer > 0) return;
+    const dx = player.x - tree.x;
+    const dz = player.z - tree.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < tree.radius + 2.5) {
+      const pushAngle = Math.atan2(dz, dx);
+      player.x += Math.cos(pushAngle) * (tree.radius + 1);
+      player.z += Math.sin(pushAngle) * (tree.radius + 1);
+      player.speed *= 0.3;
+      player.hitTimer = 45;
+      addParticle(tree.x, 2, tree.z, 0x8B4513, 10);
+    }
+  });
 }
 
-// ==================== カメラ更新（チェイスカメラ） ====================
+// ==================== カメラ更新（チェイスカメラ、地形追従） ====================
 function updateCamera() {
+  // カメラを車の後方に配置し、進行方向を見る（標準レーシングゲーム視点）
   camera.position.set(
     player.x - Math.cos(player.angle) * GAME.CAM_DIST,
-    GAME.CAM_HEIGHT + player.y,
+    GAME.CAM_HEIGHT + player.y, // 地形高さに追従
     player.z + Math.sin(player.angle) * GAME.CAM_DIST
   );
+  // 車の進行方向先を見つめる
   camera.lookAt(
     player.x + Math.cos(player.angle) * 15,
-    2 + player.y,
+    2 + player.y, // 地形高さに追従
     player.z - Math.sin(player.angle) * 15
   );
 }
 
-// ==================== AI位置更新 ====================
+// ==================== AI位置更新（地形追従） ====================
 function updateAILocations() {
   aiCars.forEach(ai => {
-    const terrainY = getTerrainHeight(ai.x, ai.z);
-    ai.mesh.position.set(ai.x, terrainY, ai.z);
+    const ty = getTerrainHeight(ai.x, ai.z);
+    ai.mesh.position.set(ai.x, ty, ai.z);
     ai.mesh.rotation.y = ai.angle;
   });
 }
 
-// ==================== アイテムボックスアニメーション ====================
+// ==================== アイテムボックスアニメーション（地形追従） ====================
 function updateItemBoxes(time) {
   itemBoxesData.forEach(box => {
     if (box.active && box.mesh.visible) {
-      box.mesh.position.y = 1.5 + Math.sin(time * 3) * 0.5;
+      const ty = getTerrainHeight(box.mesh.position.x, box.mesh.position.z);
+      box.mesh.position.y = ty + 1.5 + Math.sin(time * 3) * 0.5;
       box.mesh.rotation.y += 0.02;
+      // ライトも点滅
       box.light.intensity = 0.3 + Math.sin(time * 5) * 0.3;
     } else if (!box.active) {
       box.respawnTimer -= 1/60;
@@ -929,14 +1030,14 @@ function updateItemBoxes(time) {
   });
 }
 
-// ==================== プレイヤー位置更新 ====================
+// ==================== プレイヤー位置更新（地形追従） ====================
 function updatePlayerLocation() {
-  const targetY = getTerrainHeight(player.x, player.z);
-  player.y += (targetY - player.y) * 0.1;
-
   playerCar.position.set(player.x, player.y, player.z);
+  // ExtrudeGeometryの前面方向（ローカル+Z）とrotation.y=0の向き（世界座標+X）が
+  // Math.PI/2ずれているため、オフセットを補正して進行方向を向かせる
   playerCar.rotation.y = player.angle + GAME.ROTATION_OFFSET;
 
+  // ステアリングの視覚的フィードバック（車体を少し傾ける）— steerTargetで実際の旋回方向に合わせる
   const tiltAngle = steerTarget * 0.15;
   playerCar.rotation.z = tiltAngle;
 }
@@ -996,15 +1097,6 @@ function animate() {
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   document.getElementById('controls').style.display = 'block';
 }
-
-// ==================== 更新日時表示 ====================
-document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('updateTime');
-  if (el) {
-    const buildDate = new Date(2026, 7, 14, 16, 30); // 2026-08-14 16:30 JST
-    el.textContent = `Updated: ${buildDate.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
-  }
-});
 </script>
 </body>
 </html>
