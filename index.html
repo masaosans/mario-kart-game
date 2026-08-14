@@ -99,6 +99,7 @@ canvas { display: block; }
   <p style="color:rgba(255,255,255,0.6); margin-top:20px; font-size:clamp(0.7rem,2vw,0.9rem)">
     PC: WASD/矢印キー | スマホ: ハンドル＋アクセル
   </p>
+  <p id="updateTime" style="color:rgba(255,255,255,0.4); margin-top:10px; font-size:clamp(0.6rem,1.5vw,0.8rem)"></p>
 </div>
 
 <div id="hud">
@@ -213,23 +214,51 @@ for (let i = 0; i < numTrackPts; i++) {
   segments.push({ x: curr.x, z: curr.z, y: y, tx: dx, tz: dz, nx: -dz, nz: dx });
 }
 
-// ==================== 地形高さ取得関数（セグメントyから補間） ====================
+// ==================== 地形高さ取得関数（修正版） ====================
+// 最も近いセグメントペアを見つけ、その2点間で線形補間する
 function getTerrainHeight(px, pz) {
-  let minDist = Infinity, minIdx = 0;
+  let minDist = Infinity, bestIdx = 0;
   for (let i = 0; i < numTrackPts; i++) {
-    const d = (px - segments[i].x) ** 2 + (pz - segments[i].z) ** 2;
-    if (d < minDist) { minDist = d; minIdx = i; }
+    const seg = segments[i];
+    // セグメントからの垂直距離（セグメント方向ベクトルとの直交距離）
+    const dx = px - seg.x, dz = pz - seg.z;
+    // 法線方向への距離
+    const perpDist = Math.abs(dx * seg.nx + dz * seg.nz);
+    if (perpDist < minDist) { minDist = perpDist; bestIdx = i; }
   }
-  const curr = segments[minIdx];
-  const prev = segments[(minIdx - 1 + numTrackPts) % numTrackPts];
-  const next = segments[(minIdx + 1) % numTrackPts];
-  const dPrev = (px - prev.x) ** 2 + (pz - prev.z) ** 2;
-  const dNext = (px - next.x) ** 2 + (pz - next.z) ** 2;
-  const totalDist = dPrev + minDist + dNext;
-  if (totalDist === 0) return curr.y;
-  const tPrev = Math.sqrt(dPrev) / (Math.sqrt(dPrev) + Math.sqrt(minDist));
-  const tNext = Math.sqrt(dNext) / (Math.sqrt(dNext) + Math.sqrt(minDist));
-  return curr.y * (1 - tPrev * 0.5 - tNext * 0.5) + prev.y * tPrev * 0.5 + next.y * tNext * 0.5;
+
+  // 最も近いセグメントとその前後のセグメントを取得
+  const curr = segments[bestIdx];
+  const prev = segments[(bestIdx - 1 + numTrackPts) % numTrackPts];
+  const next = segments[(bestIdx + 1) % numTrackPts];
+
+  // セグメント方向ベクトルへの射影距離を計算（どのセグメント間にあるか）
+  const dx = px - curr.x, dz = pz - curr.z;
+  const projCurr = dx * curr.tx + dz * curr.tz; // 現在のセグメント方向への射影
+
+  let t; // 0=prev, 1=current, 2=next の間の補間係数
+  if (projCurr < 0) {
+    // prevとcurrentの間
+    const dPrev = Math.sqrt((px - prev.x)**2 + (pz - prev.z)**2);
+    const dCurr = Math.sqrt(dx*dx + dz*dz);
+    t = dCurr / (dPrev + dCurr); // 0=prev, 1=current
+  } else if (projCurr > 60) {
+    // currentとnextの間（セグメント長は約40）
+    const dx2 = px - next.x, dz2 = pz - next.z;
+    const dCurr = Math.sqrt(dx*dx + dz*dz);
+    const dNext = Math.sqrt(dx2*dx2 + dz2*dz2);
+    t = 1 + dCurr / (dCurr + dNext); // 1=current, 2=next
+  } else {
+    // currentセグメント上
+    t = 1;
+  }
+
+  // 線形補間: prev.y * (1-t) + curr.y * (t-0) + next.y * (t-1)
+  if (t <= 1) {
+    return prev.y * (1 - t) + curr.y * t;
+  } else {
+    return curr.y * (2 - t) + next.y * (t - 1);
+  }
 }
 
 // ==================== 道路メッシュ（s.yで配置） ====================
