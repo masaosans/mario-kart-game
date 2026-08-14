@@ -215,7 +215,6 @@ for (let i = 0; i < numTrackPts; i++) {
 }
 
 // ==================== 地形高さ取得関数（修正版） ====================
-// 最も近いセグメントペアを見つけ、その2点間で線形補間する
 function getTerrainHeight(px, pz) {
   let minDist = Infinity, bestIdx = 0;
   for (let i = 0; i < numTrackPts; i++) {
@@ -242,7 +241,7 @@ function getTerrainHeight(px, pz) {
     const dPrev = Math.sqrt((px - prev.x)**2 + (pz - prev.z)**2);
     const dCurr = Math.sqrt(dx*dx + dz*dz);
     t = dCurr / (dPrev + dCurr); // 0=prev, 1=current
-  } else if (projCurr > 60) {
+  } else if (projCurr > 40) {
     // currentとnextの間（セグメント長は約40）
     const dx2 = px - next.x, dz2 = pz - next.z;
     const dCurr = Math.sqrt(dx*dx + dz*dz);
@@ -1002,7 +1001,7 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
 document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('updateTime');
   if (el) {
-    const buildDate = new Date(2026, 7, 14, 9, 30); // 2026-08-14 09:30 JST
+    const buildDate = new Date(2026, 7, 14, 16, 30); // 2026-08-14 16:30 JST
     el.textContent = `Updated: ${buildDate.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
   }
 });
