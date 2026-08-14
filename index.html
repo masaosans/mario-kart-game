@@ -95,7 +95,6 @@ canvas { display: block; }
   <div class="kart-emoji">🏎️💨</div>
   <h1>MARIO KART 3D</h1>
   <p class="subtitle">Three.js 3D レーシングゲーム - 自由走行モード</p>
-  <p style="color:rgba(255,255,255,0.4); margin-top:10px; font-size:clamp(0.6rem,1.8vw,0.75rem)" id="updateDate">2026/08/14 20:03 JST</p>
   <button id="startBtn" onclick="startGame()">🏁 スタート！</button>
   <p style="color:rgba(255,255,255,0.6); margin-top:20px; font-size:clamp(0.7rem,2vw,0.9rem)">
     PC: WASD/矢印キー | スマホ: ハンドル＋アクセル
@@ -189,50 +188,23 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
-// ==================== 地形高さ取得（セグメントの高さを参照） ====================
+// ==================== 地形高さ取得（全セグメントの重み付き平均） ====================
 function getTerrainHeight(px, pz) {
-  let minDist = Infinity, bestIdx = 0;
+  let totalWeight = 0;
+  let totalHeight = 0;
+  const influenceRadius = 200; // 各セグメントの影響半径
+
   for (let i = 0; i < numTrackPts; i++) {
-    const seg = segments[i];
-    // セグメントからの垂直距離（セグメント方向ベクトルとの直交距離）
-    const dx = px - seg.x, dz = pz - seg.z;
-    // 法線方向への距離
-    const perpDist = Math.abs(dx * seg.nx + dz * seg.nz);
-    if (perpDist < minDist) { minDist = perpDist; bestIdx = i; }
+    const s = segments[i];
+    const dx = px - s.x, dz = pz - s.z;
+    const distSq = dx * dx + dz * dz;
+    // ガウス重み：距離が離れるほど指数関数的に減衰
+    const weight = Math.exp(-distSq / (2 * influenceRadius * influenceRadius));
+    totalWeight += weight;
+    totalHeight += s.y * weight;
   }
 
-  // 最も近いセグメントとその前後のセグメントを取得
-  const curr = segments[bestIdx];
-  const prev = segments[(bestIdx - 1 + numTrackPts) % numTrackPts];
-  const next = segments[(bestIdx + 1) % numTrackPts];
-
-  // セグメント方向ベクトルへの射影距離を計算（どのセグメント間にあるか）
-  const dx = px - curr.x, dz = pz - curr.z;
-  const projCurr = dx * curr.tx + dz * curr.tz; // 現在のセグメント方向への射影
-
-  let t; // 0=prev, 1=current, 2=next の間の補間係数
-  if (projCurr < 0) {
-    // prevとcurrentの間
-    const dPrev = Math.sqrt((px - prev.x)**2 + (pz - prev.z)**2);
-    const dCurr = Math.sqrt(dx*dx + dz*dz);
-    t = dCurr / (dPrev + dCurr); // 0=prev, 1=current
-  } else if (projCurr > 60) {
-    // currentとnextの間（セグメント長は約40）
-    const dx2 = px - next.x, dz2 = pz - next.z;
-    const dCurr = Math.sqrt(dx*dx + dz*dz);
-    const dNext = Math.sqrt(dx2*dx2 + dz2*dz2);
-    t = 1 + dCurr / (dCurr + dNext); // 1=current, 2=next
-  } else {
-    // currentセグメント上
-    t = 1;
-  }
-
-  // 線形補間: prev.y * (1-t) + curr.y * (t-0) + next.y * (t-1)
-  if (t <= 1) {
-    return prev.y * (1 - t) + curr.y * t;
-  } else {
-    return curr.y * (2 - t) + next.y * (t - 1);
-  }
+  return totalHeight / totalWeight;
 }
 
 // ==================== トラック定義 ====================
@@ -274,7 +246,7 @@ const gPos = groundGeo.attributes.position;
 for (let i = 0; i < gPos.count; i++) {
   const gx = gPos.getX(i), gy2 = gPos.getY(i); // PlaneGeometryはXY平面に配置
   const gz = getTerrainHeight(gx, gy2);
-  gPos.setZ(i, gz); // Zに書き込む（-Math.PI/2回転で-Z→+Yになるよう符号を反転）
+  gPos.setZ(i, gz);
 }
 groundGeo.computeVertexNormals();
 const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ color: 0x4a8c3f }));
