@@ -353,6 +353,8 @@ function createTrees() {
       dist = 60 + Math.random() * 150;
     }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
+    // 地形の高さに合わせてY座標を調整
+    const terrainY = getTerrainHeight(tx, tz);
 
     // 幹
     const trunkH = 12 + Math.random() * 8;
@@ -361,7 +363,7 @@ function createTrees() {
       new THREE.CylinderGeometry(1.5, trunkRadius, trunkH, 6),
       new THREE.MeshLambertMaterial({ color: 0x8B4513 })
     );
-    trunk.position.set(tx, trunkH / 2 - 1, tz);
+    trunk.position.set(tx, terrainY + trunkH / 2 - 1, tz);
     trunk.castShadow = true;
     scene.add(trunk);
 
@@ -374,7 +376,7 @@ function createTrees() {
         new THREE.ConeGeometry(r, h, 6),
         new THREE.MeshLambertMaterial({ color: leafColors[j % 3] })
       );
-      leaves.position.set(tx, trunkH - 2 + j * 4, tz);
+      leaves.position.set(tx, terrainY + trunkH - 2 + j * 4, tz);
       leaves.castShadow = true;
       scene.add(leaves);
     }
@@ -398,12 +400,14 @@ function createRocks() {
       dist = 45 + Math.random() * 80; // 70%は少し離す
     }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
+    // 地形の高さに合わせてY座標を調整
+    const terrainY = getTerrainHeight(tx, tz);
 
     const radius = 2 + Math.random() * 3.5;
     const rockGeo = new THREE.DodecahedronGeometry(radius);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
-    rock.position.set(tx, radius * 0.5, tz);
+    rock.position.set(tx, terrainY + radius * 0.5, tz);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.castShadow = true;
     scene.add(rock);
