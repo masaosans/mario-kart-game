@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>🏎️ 3D ブラウザ版マリオカート - Updated: 2026-08-15</title>
+<title>🏎️ 3D ブラウザ版マリオカート - Updated: 2026-08-17</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
@@ -84,7 +84,7 @@ canvas { display: block; }
   align-items: center; justify-content: center; z-index: 200; color: #fff; }
 #goalScreen h1 { font-size: clamp(2rem, 8vw, 3.5rem); margin-bottom: 10px; }
 #goalScreen .time { font-size: clamp(1rem, 4vw, 1.5rem); opacity: 0.8; margin-bottom: 30px; }
-#restartBtn { padding: 12px 40px; font-size: clamp(1rem, 3vw, 1.3rem); border: none; border-radius: 50px; background: #f39c12; color: #fff; font-weight: bold; cursor: pointer; }
+#restartBtn { padding: 12px 40px; font-size: clamp(1rem, 3vw, 1.3rem); border: none; border-radius: 50%; background: #f39c12; color: #fff; font-weight: bold; cursor: pointer; }
 
 @media (min-width: 768px) { .action-btn { width: 100px; height: 100px; } }
 </style>
@@ -95,7 +95,7 @@ canvas { display: block; }
   <div class="kart-emoji">🏎️💨</div>
   <h1>MARIO KART 3D</h1>
   <p class="subtitle">Three.js 3D レーシングゲーム - 自由走行モード</p>
-  <p style="color:rgba(255,255,255,0.5); margin-bottom:15px; font-size:clamp(0.6rem,1.8vw,0.8rem)">Updated: 2026-08-15 12:56 JST</p>
+  <p style="color:rgba(255,255,255,0.5); margin-bottom:15px; font-size:clamp(0.6rem,1.8vw,0.8rem)">Updated: 2026-08-17 14:30 JST</p>
   <button id="startBtn" onclick="startGame()">🏁 スタート！</button>
   <p style="color:rgba(255,255,255,0.6); margin-top:20px; font-size:clamp(0.7rem,2vw,0.9rem)">
     PC: WASD/矢印キー | スマホ: ハンドル＋アクセル
@@ -143,7 +143,6 @@ const GAME = {
   CAM_DIST: 18,             // カメラ距離
   CAM_HEIGHT: 10,           // カメラ高さ
   ROTATION_OFFSET: -Math.PI / 2, // ExtrudeGeometry前面(ローカル+Z)を世界座標+Xに向けるオフセット
-  // angle=0 → +X方向、angle=π/2 → -Z方向（左旋回）、Y軸回転は反時計回り
 };
 
 // ==================== Three.js セットアップ ====================
@@ -191,7 +190,6 @@ window.addEventListener('resize', onResize);
 
 // ==================== 地形高さ取得（セグメントの高さを参照） ====================
 function getTerrainHeight(px, pz) {
-  // 最も近いセグメントのインデックスを取得
   let minDist = Infinity, minIdx = 0;
   for (let i = 0; i < numTrackPts; i++) {
     const s = segments[i];
@@ -199,18 +197,15 @@ function getTerrainHeight(px, pz) {
     const d = dx * dx + dz * dz;
     if (d < minDist) { minDist = d; minIdx = i; }
   }
-  // 最も近いセグメントの高さを返す（補間版）
   const prev = segments[(minIdx - 1 + numTrackPts) % numTrackPts];
   const curr = segments[minIdx];
   const next = segments[(minIdx + 1) % numTrackPts];
-  // 3点間の線形補間で滑らかに（簡易版：最も近いセグメントの高さに近い方を優先）
   const dPrev = (px - prev.x) ** 2 + (pz - prev.z) ** 2;
   const dCurr = (px - curr.x) ** 2 + (pz - curr.z) ** 2;
   const dNext = (px - next.x) ** 2 + (pz - next.z) ** 2;
   const minD = Math.min(dPrev, dCurr, dNext);
   if (minD === dCurr) return curr.y;
   if (minD === dPrev) {
-    // prevとcurrの間で補間
     const t = Math.sqrt(dCurr / (dPrev + dCurr));
     return curr.y * (1 - t) + prev.y * t;
   }
@@ -236,12 +231,11 @@ for (let i = 0; i < numTrackPts; i++) {
   const len = Math.sqrt(dx * dx + dz * dz);
   dx /= len; dz /= len;
 
-  // 地形高さ：パラメータtから計算（セグメントインデックスベース）
   const t2 = i / numTrackPts * Math.PI * 2;
   let y = 0;
-  y += Math.sin(t2 * 3) * 15;    // 大きな丘
-  y += Math.sin(t2 * 7 + 1) * 8; // 中くらいの起伏
-  y += Math.cos(t2 * 13 + 2) * 4;// 細かい凸凹
+  y += Math.sin(t2 * 3) * 15;
+  y += Math.sin(t2 * 7 + 1) * 8;
+  y += Math.cos(t2 * 13 + 2) * 4;
   y = Math.max(-20, Math.min(25, y));
 
   segments.push({ x: curr.x, z: curr.z, tx: dx, tz: dz, nx: -dz, nz: dx, y });
@@ -249,16 +243,14 @@ for (let i = 0; i < numTrackPts; i++) {
 
 // ==================== 地面（地形起伏付き） ====================
 const groundSize = 6000;
-const groundSegs = 120; // 分割数：多いほど滑らかな起伏
+const groundSegs = 120;
 const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, groundSegs, groundSegs);
-// 頂点ごとに地形高さを計算してY座標をずらす
-// PlaneGeometryはXY平面、rotation.x=-PI/2で: gx→worldX, gy2→-worldZ, setZ→worldY
 const gPos = groundGeo.attributes.position;
 for (let i = 0; i < gPos.count; i++) {
-  const gx = gPos.getX(i), gy2 = gPos.getY(i); // PlaneGeometryはXY平面に配置
-  const worldX = gx, worldZ = -gy2;            // rotation後の世界座標
-  const gz = getTerrainHeight(worldX, worldZ);  // 地形高さを取得
-  gPos.setZ(i, gz);                             // Z→Y（rotationで自動変換）
+  const gx = gPos.getX(i), gy2 = gPos.getY(i);
+  const worldX = gx, worldZ = -gy2;
+  const gz = getTerrainHeight(worldX, worldZ);
+  gPos.setZ(i, gz);
 }
 groundGeo.computeVertexNormals();
 const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ color: 0x4a8c3f }));
@@ -267,7 +259,6 @@ ground.position.y = 0;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// グリッドライン（地面に）
 const gridHelper = new THREE.GridHelper(6000, 120, 0x3a7d2f, 0x3a7d2f);
 gridHelper.position.y = -0.5;
 scene.add(gridHelper);
@@ -345,18 +336,15 @@ function createTrees() {
     const segIdx = Math.floor(Math.random() * numTrackPts);
     const s = segments[segIdx];
     const side = Math.random() > 0.5 ? 1 : -1;
-    // 木もトラック寄りに（一部はコース端に）
     let dist;
     if (Math.random() < 0.4) {
-      dist = 35 + Math.random() * 20; // 40%はコース端寄り
+      dist = 35 + Math.random() * 20;
     } else {
       dist = 60 + Math.random() * 150;
     }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
-    // 地形の高さに合わせてY座標を調整
     const terrainY = getTerrainHeight(tx, tz);
 
-    // 幹
     const trunkH = 12 + Math.random() * 8;
     const trunkRadius = 3;
     const trunk = new THREE.Mesh(
@@ -367,7 +355,6 @@ function createTrees() {
     trunk.castShadow = true;
     scene.add(trunk);
 
-    // 葉（複数レイヤー）
     const leafColors = [0x2d5a27, 0x3a7d42, 0x228B22];
     for (let j = 0; j < 3; j++) {
       const r = 6 + Math.random() * 6 - j * 1.5;
@@ -392,15 +379,13 @@ function createRocks() {
     const segIdx = Math.floor(Math.random() * numTrackPts);
     const s = segments[segIdx];
     const side = Math.random() > 0.5 ? 1 : -1;
-    // 岩をトラック寄りに配置（一部はコース上に）
     let dist;
     if (Math.random() < 0.3) {
-      dist = 15 + Math.random() * 25; // 30%の確率でコース上またはすぐ横
+      dist = 15 + Math.random() * 25;
     } else {
-      dist = 45 + Math.random() * 80; // 70%は少し離す
+      dist = 45 + Math.random() * 80;
     }
     const tx = s.x + s.nx * dist * side, tz = s.z + s.nz * dist * side;
-    // 地形の高さに合わせてY座標を調整
     const terrainY = getTerrainHeight(tx, tz);
 
     const radius = 2 + Math.random() * 3.5;
@@ -416,125 +401,211 @@ function createRocks() {
   }
 }
 
-// ==================== 高品質カー作成関数 ====================
+// ==================== 高品質クルマ作成関数（参考画像風ボクシーバン） ====================
 function createCar(color, emoji) {
   const group = new THREE.Group();
 
-  // シャドウ
-  const shadowGeo = new THREE.PlaneGeometry(5, 8);
+  // --- シャドウ ---
+  const shadowGeo = new THREE.PlaneGeometry(5.5, 9);
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2 });
   const shadow = new THREE.Mesh(shadowGeo, shadowMat);
   shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.05;
+  shadow.position.y = 0.1;
   group.add(shadow);
 
-  // メインボディ（前面が細く、後面が広いレーシングカー形状）
-  const bodyShape = new THREE.Shape();
-  bodyShape.moveTo(-1.8, -3);
-  bodyShape.lineTo(1.8, -3);
-  bodyShape.lineTo(2, -1.5);
-  bodyShape.quadraticCurveTo(2.2, 0, 1.8, 1);
-  bodyShape.lineTo(1.5, 2.5);
-  bodyShape.quadraticCurveTo(1.3, 3, 0, 3.2);
-  bodyShape.quadraticCurveTo(-1.3, 3, -1.5, 2.5);
-  bodyShape.lineTo(-1.8, 1);
-  bodyShape.quadraticCurveTo(-2.2, 0, -2, -1.5);
-  bodyShape.closePath();
+  // ========================================
+  // メインボディ（ボクシーなバン形状）
+  // 参考画像: 縦長の箱型、垂直フロント、短いボンネット
+  // ========================================
+  const bodyW = 3.2;    // 幅
+  const bodyH = 1.8;    // ボディ高さ（タイヤ上部〜窓下）
+  const bodyD = 6.5;    // 全長
+  const wheelBase = 4.0; // ホイールベース
 
-  const extrudeSettings = { depth: 3.5, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 2 };
-  const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
-  const bodyMat = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
-  const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-  bodyMesh.rotation.x = -Math.PI / 2;
-  bodyMesh.position.set(0, 1.2, -1.75);
-  bodyMesh.castShadow = true;
-  group.add(bodyMesh);
+  // メインボディボックス（キャビン＋荷台一体型）
+  const mainBodyGeo = new THREE.BoxGeometry(bodyW, bodyH, bodyD);
+  const mainBodyMat = new THREE.MeshPhongMaterial({ color: color, shininess: 60 });
+  const mainBody = new THREE.Mesh(mainBodyGeo, mainBodyMat);
+  mainBody.position.set(0, bodyH / 2 + 1.0, 0); // タイヤ上面から
+  mainBody.castShadow = true;
+  group.add(mainBody);
 
-  // コクピット（キャノピー）
-  const cockpitGeo = new THREE.SphereGeometry(1.3, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-  const cockpitMat = new THREE.MeshPhongMaterial({ color: 0x444444, shininess: 100 });
-  const cockpit = new THREE.Mesh(cockpitGeo, cockpitMat);
-  cockpit.scale.set(1, 0.6, 0.7);
-  cockpit.position.set(0, 2.5, -0.3);
-  cockpit.castShadow = true;
-  group.add(cockpit);
+  // --- ボンネット（フロント部分の盛り上がり）---
+  const bonnetGeo = new THREE.BoxGeometry(bodyW - 0.4, 0.6, 1.8);
+  const bonnetMat = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
+  const bonnet = new THREE.Mesh(bonnetGeo, bonnetMat);
+  bonnet.position.set(0, bodyH + 1.3, -bodyD / 2 + 1.0); // メインボディ上面より前方
+  bonnet.castShadow = true;
+  group.add(bonnet);
 
-  // ウィンドウ（透明）
-  const winGeo = new THREE.SphereGeometry(1.1, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-  const winMat = new THREE.MeshPhongMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.4, shininess: 200 });
-  const winMesh = new THREE.Mesh(winGeo, winMat);
-  winMesh.scale.set(0.95, 0.55, 0.65);
-  winMesh.position.set(0, 2.55, -0.3);
-  group.add(winMesh);
+  // --- キャビン（窓付き、メインボディ上部）---
+  const cabinW = bodyW - 0.3;
+  const cabinH = 1.6;   // キャビン高さ
+  const cabinD = bodyD * 0.75; // ボディの後ろ75%をキャビンに
+  const cabinGeo = new THREE.BoxGeometry(cabinW, cabinH, cabinD);
+  const cabinMat = new THREE.MeshPhongMaterial({ color: color, shininess: 60 });
+  const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+  // キャビンはメインボディ上面に積み、後方にずらす
+  cabin.position.set(0, bodyH + 1.0 + cabinH / 2, -bodyD / 2 + cabinD / 2 + (bodyD * 0.25));
+  cabin.castShadow = true;
+  group.add(cabin);
 
-  // フロントウィング（空力パーツ）
-  const fwGeo = new THREE.BoxGeometry(4, 0.3, 1.2);
-  const fwMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
-  const frontWing = new THREE.Mesh(fwGeo, fwMat);
-  frontWing.position.set(0, 0.5, -3.2);
-  frontWing.castShadow = true;
-  group.add(frontWing);
+  // --- ルーフ（キャビン上部、平ら）---
+  const roofGeo = new THREE.BoxGeometry(cabinW - 0.1, 0.15, cabinD + 0.2);
+  const roofMat = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.copy(cabin.position);
+  roof.position.y += cabinH / 2 + 0.075;
+  group.add(roof);
 
-  // リアウィング（大型スポイラー）
-  const rwSupport1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.5, 0.3), fwMat);
-  rwSupport1.position.set(-1.2, 2.8, 2.5);
-  group.add(rwSupport1);
-  const rwSupport2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.5, 0.3), fwMat);
-  rwSupport2.position.set(1.2, 2.8, 2.5);
-  group.add(rwSupport2);
+  // ========================================
+  // ウィンドウ（透明ガラス）
+  // ========================================
+  const windowMat = new THREE.MeshPhongMaterial({
+    color: 0x88bbdd, transparent: true, opacity: 0.45,
+    shininess: 200, side: THREE.DoubleSide
+  });
 
-  const rwGeo = new THREE.BoxGeometry(4.5, 0.3, 1);
-  const rearWing = new THREE.Mesh(rwGeo, fwMat);
-  rearWing.position.set(0, 3.5, 2.8);
-  rearWing.castShadow = true;
-  group.add(rearWing);
+  // フロントウィンドウ（前面ガラス）- ボンネット上部
+  const fwGeo = new THREE.PlaneGeometry(cabinW - 0.3, cabinH * 0.85);
+  const frontWindow = new THREE.Mesh(fwGeo, windowMat);
+  frontWindow.position.set(
+    0,
+    bodyH + 1.0 + cabinH / 2,
+    -bodyD / 2 + cabinD + 0.05
+  );
+  group.add(frontWindow);
 
-  // タイヤ（4つ）- よりリアルな形状
-  const tireGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.7, 12);
-  const tireMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+  // サイドウィンドウ（左）
+  const sideWinGeo = new THREE.PlaneGeometry(cabinD * 0.7, cabinH * 0.65);
+  const leftWindow = new THREE.Mesh(sideWinGeo, windowMat);
+  leftWindow.position.set(
+    -cabinW / 2 - 0.01,
+    bodyH + 1.0 + cabinH * 0.35,
+    -bodyD / 2 + cabinD / 2 + (bodyD * 0.25)
+  );
+  leftWindow.rotation.y = Math.PI / 2;
+  group.add(leftWindow);
 
-  [[-2, 0.85, -2.2], [2, 0.85, -2.2], [-2, 0.85, 2.2], [2, 0.85, 2.2]].forEach(([x,y,z]) => {
+  // サイドウィンドウ（右）
+  const rightWindow = new THREE.Mesh(sideWinGeo, windowMat);
+  rightWindow.position.set(
+    cabinW / 2 + 0.01,
+    bodyH + 1.0 + cabinH * 0.35,
+    -bodyD / 2 + cabinD / 2 + (bodyD * 0.25)
+  );
+  rightWindow.rotation.y = -Math.PI / 2;
+  group.add(rightWindow);
+
+  // リアウィンドウ（後面ガラス）
+  const rwGeo = new THREE.PlaneGeometry(cabinW - 0.3, cabinH * 0.75);
+  const rearWindow = new THREE.Mesh(rwGeo, windowMat);
+  rearWindow.position.set(
+    0,
+    bodyH + 1.0 + cabinH / 2,
+    bodyD / 2 - (bodyD * 0.25) - 0.05
+  );
+  rearWindow.rotation.y = Math.PI;
+  group.add(rearWindow);
+
+  // ========================================
+  // フロントグリル＆バンパー
+  // ========================================
+  // グリル（前面中央）
+  const grillGeo = new THREE.BoxGeometry(1.8, 0.6, 0.2);
+  const grillMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+  const grill = new THREE.Mesh(grillGeo, grillMat);
+  grill.position.set(0, bodyH * 0.4 + 1.0, -bodyD / 2 - 0.1);
+  group.add(grill);
+
+  // フロントバンパー（下部）
+  const frontBumperGeo = new THREE.BoxGeometry(bodyW + 0.2, 0.35, 0.4);
+  const bumperMat = new THREE.MeshPhongMaterial({ color: 0xdddddd });
+  const frontBumper = new THREE.Mesh(frontBumperGeo, bumperMat);
+  frontBumper.position.set(0, 0.55, -bodyD / 2 + 0.1);
+  group.add(frontBumper);
+
+  // リアバンパー（後部）
+  const rearBumper = new THREE.Mesh(frontBumperGeo.clone(), bumperMat);
+  rearBumper.position.set(0, 0.55, bodyD / 2 - 0.1);
+  group.add(rearBumper);
+
+  // ========================================
+  // ヘッドライト（前）- 明るい黄色
+  // ========================================
+  const hlGeo = new THREE.BoxGeometry(0.6, 0.45, 0.25);
+  const hlMat = new THREE.MeshPhongMaterial({ color: 0xffffcc, emissive: 0xffffaa, emissiveIntensity: 0.6 });
+  [-1.0, 1.0].forEach(x => {
+    const hl = new THREE.Mesh(hlGeo, hlMat);
+    hl.position.set(x, bodyH * 0.5 + 1.0, -bodyD / 2 - 0.15);
+    group.add(hl);
+  });
+
+  // ========================================
+  // テールライト（後）- 赤く光る
+  // ========================================
+  const tlGeo = new THREE.BoxGeometry(0.6, 0.45, 0.25);
+  const tlMat = new THREE.MeshPhongMaterial({ color: 0xff2200, emissive: 0xff0000, emissiveIntensity: 0.5 });
+  [-1.0, 1.0].forEach(x => {
+    const tl = new THREE.Mesh(tlGeo, tlMat);
+    tl.position.set(x, bodyH * 0.5 + 1.0, bodyD / 2 + 0.1);
+    group.add(tl);
+  });
+
+  // ========================================
+  // タイヤ（4つ）- リアルな形状
+  // ========================================
+  const tireGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.6, 16);
+  const tireMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
+
+  // ホイールリム（銀色）
+  const rimGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.62, 8);
+  const rimMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 150 });
+
+  // タイヤ位置: フロント左, フロント右, リア左, リア右
+  [[-bodyW / 2 + 0.3, 0.75, -wheelBase / 2],
+   [ bodyW / 2 - 0.3, 0.75, -wheelBase / 2],
+   [-bodyW / 2 + 0.3, 0.75,  wheelBase / 2],
+   [ bodyW / 2 - 0.3, 0.75,  wheelBase / 2]].forEach(([x, y, z]) => {
+    // タイヤ本体
     const tire = new THREE.Mesh(tireGeo, tireMat);
     tire.rotation.z = Math.PI / 2;
     tire.position.set(x, y, z);
     tire.castShadow = true;
     group.add(tire);
 
-    // ホイールリム（銀色）
-    const rimGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.72, 8);
-    const rimMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 150 });
+    // ホイールリム
     const rim = new THREE.Mesh(rimGeo, rimMat);
     rim.rotation.z = Math.PI / 2;
     rim.position.set(x, y, z);
     group.add(rim);
   });
 
-  // ヘッドライト（前）- 明るい黄色
-  const hlGeo = new THREE.SphereGeometry(0.35, 8, 6);
-  const hlMat = new THREE.MeshPhongMaterial({ color: 0xffffcc, emissive: 0xffffaa, emissiveIntensity: 0.5 });
-  [-1.2, 1.2].forEach(x => {
-    const hl = new THREE.Mesh(hlGeo, hlMat);
-    hl.position.set(x, 1.3, -3.1);
-    group.add(hl);
+  // ========================================
+  // ミラー（サイドミラー）
+  // ========================================
+  const mirrorGeo = new THREE.BoxGeometry(0.3, 0.25, 0.15);
+  const mirrorMat = new THREE.MeshPhongMaterial({ color: 0x444444 });
+  [-1, 1].forEach(side => {
+    const mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
+    mirror.position.set(
+      side * (bodyW / 2 + 0.15),
+      bodyH + 1.0,
+      -bodyD / 2 + cabinD + 0.3
+    );
+    group.add(mirror);
   });
 
-  // テールライト（後）- 赤く光る
-  const tlGeo = new THREE.SphereGeometry(0.3, 8, 6);
-  const tlMat = new THREE.MeshPhongMaterial({ color: 0xff2200, emissive: 0xff0000, emissiveIntensity: 0.4 });
-  [-1.2, 1.2].forEach(x => {
-    const tl = new THREE.Mesh(tlGeo, tlMat);
-    tl.position.set(x, 1.3, 3.1);
-    group.add(tl);
-  });
-
+  // ========================================
   // Emojiスプライト（キャラクター表示）
+  // ========================================
   const canvas = document.createElement('canvas');
   canvas.width = 64; canvas.height = 64;
   const ctx2d = canvas.getContext('2d');
   ctx2d.font = '48px sans-serif'; ctx2d.textAlign = 'center';
   ctx2d.fillText(emoji, 32, 50);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
-  sprite.position.set(0, 5.5, 0);
+  sprite.position.set(0, bodyH + cabinH + 3.5, 0);
   sprite.scale.set(2.5, 2.5, 1);
   group.add(sprite);
 
@@ -556,7 +627,6 @@ function getNearestSegment(px, pz) {
 // ==================== アイテムボックス（強化版、地形追従） ====================
 function createItemBox(x, z) {
   const geo = new THREE.BoxGeometry(3, 3, 3);
-  // 各面に異なるテクスチャ
   const canvas = document.createElement('canvas');
   canvas.width = 64; canvas.height = 64;
   const ctx2d = canvas.getContext('2d');
@@ -572,12 +642,11 @@ function createItemBox(x, z) {
   mesh.castShadow = true;
   scene.add(mesh);
 
-  // 光るエフェクト（ポイントライト）
   const light = new THREE.PointLight(0xf39c12, 0.5, 15);
   light.position.set(x, 3, z);
   scene.add(light);
 
-  return { mesh, active: true, light, respawnTimer: 0 }; // respawnTimer初期値追加
+  return { mesh, active: true, light, respawnTimer: 0 };
 }
 
 // ==================== コーン（強化版、地形追従） ====================
@@ -617,8 +686,7 @@ scene.add(playerCar);
 
 const player = {
   x: trackPoints[10].x, z: trackPoints[10].z,
-  y: segments[10].y, // 地形高さに初期化
-  // angle初期値：セグメントの進行方向を向く（atan2(x,y)で方向ベクトルから角度算出）
+  y: segments[10].y,
   angle: Math.atan2(segments[10].tx, segments[10].tz),
   speed: 0,
   maxSpeed: GAME.MAX_SPEED,
@@ -694,11 +762,10 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 // ==================== タッチ操作：ハンドル（左側） ====================
 let steerInput = 0;
-let steerTarget = 0; // グローバル化: updatePlayerLocation()でも使用するため
+let steerTarget = 0;
 const steerArea = document.getElementById('steerArea');
 const steerKnob = document.getElementById('steerKnob');
 
-// アクティブなポインターIDのセット（複数指同時タッチ対応）
 const activePointerIds = new Set();
 
 function getSteerCenter() {
@@ -706,13 +773,9 @@ function getSteerCenter() {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
-// ハンドルエリア内のポインターを特定（座標で判定）
 function findPointerInSteerArea() {
-  // navigator.getCoalescedEvents() や e.pointerType は使えないので、
-  // documentの全active pointerからハンドルエリア内を探す
   for (const id of activePointerIds) {
     const rect = steerArea.getBoundingClientRect();
-    // このポインターの現在位置を取得（座標は毎フレーム更新済み）
     if (pointerPositions.has(id)) {
       const pos = pointerPositions.get(id);
       if (pos.x >= rect.left && pos.x <= rect.right &&
@@ -724,7 +787,6 @@ function findPointerInSteerArea() {
   return null;
 }
 
-// ポインター位置の追跡用マップ
 const pointerPositions = new Map();
 
 document.addEventListener('pointerdown', e => {
@@ -735,10 +797,8 @@ document.addEventListener('pointerdown', e => {
 document.addEventListener('pointermove', e => {
   pointerPositions.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  // ハンドルエリア内のポインターを特定
   const steerPtrId = findPointerInSteerArea();
   if (steerPtrId === null) {
-    // ハンドルエリア内に指がなければリセット
     steerInput = 0;
     steerKnob.style.transform = 'translate(-50%, -50%)';
     return;
@@ -752,14 +812,12 @@ document.addEventListener('pointermove', e => {
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist > halfW) { dx *= halfW / dist; dy *= halfW / dist; }
   steerKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-  // 左に動かす→左旋回（角度減少）、右に動かす→右旋回（角度増加）
   steerInput = Math.max(-1, Math.min(1, dx / halfW));
 });
 
 document.addEventListener('pointerup', e => {
   activePointerIds.delete(e.pointerId);
   pointerPositions.delete(e.pointerId);
-  // ハンドルエリア内のポインターがなくなったらリセット
   if (findPointerInSteerArea() === null) {
     steerInput = 0;
     steerKnob.style.transform = 'translate(-50%, -50%)';
@@ -857,14 +915,11 @@ function updatePlayer(dt) {
   const isLeft = keys['arrowleft'] || keys['a'];
   const isRight = keys['arrowright'] || keys['d'];
 
-  // タッチ: カメラ前方視点なので左ドラッグ→画面左旋回(角度増加)、右ドラッグ→画面右旋回(角度減少)
   steerTarget = -steerInput;
 
-  // キーボード: 矢印/WSでステアリング（タッチと加算）
   if (isLeft) steerTarget += 1;
   if (isRight) steerTarget -= 1;
 
-  // アクセル
   if (isAccel) {
     let spd = player.maxSpeed;
     if (player.boostTimer > 0) { spd *= GAME.BOOST_MULTIPLIER; player.boostTimer -= dt; }
@@ -876,36 +931,29 @@ function updatePlayer(dt) {
     if (player.speed < 0) player.speed = Math.min(0, player.speed + player.friction * dt);
   }
 
-  // ステアリング（角度を回転）- Three.js座標系に合わせる
   const steerAmount = steerTarget * player.maxSteerSpeed * dt;
   if (Math.abs(player.speed) > 0.1) {
-    // 速度が低いほどステアリング効きを落とす（実車のような挙動）
     const speedFactor = Math.min(1, Math.abs(player.speed) / GAME.STEER_FACTOR_MIN_SPEED);
     player.angle += steerAmount * speedFactor;
   }
 
-  // 位置更新：angle=0→+X方向、angle=π/2→-Z（左旋回）、反時計回り
   player.x += Math.cos(player.angle) * player.speed * dt;
   player.z -= Math.sin(player.angle) * player.speed * dt;
 
-  // 地形追従：プレイヤーの現在位置に最も近いセグメントの高さにYを合わせる
   const terrainY = getTerrainHeight(player.x, player.z);
-  player.y += (terrainY - player.y) * 0.15; // スムーズに追従
+  player.y += (terrainY - player.y) * 0.15;
 
-  // パーティクル
   if (player.speed > 2 && Math.random() < 0.15) {
     addParticle(player.x, 1, player.z, 0xaaaaaa, 1);
   }
   if (player.hitTimer > 0) player.hitTimer -= dt;
 
-  // ラップチェック（スタート/ゴールライン通過判定）
   const startSeg = segments[0];
   const dx = player.x - startSeg.x;
   const dz = player.z - startSeg.z;
   const nearStart = Math.sqrt(dx*dx + dz*dz) < 50 && Math.abs(player.speed) > 1;
 
   if (nearStart && !player._crossedStart) {
-    // スタート地点に入った → ラップ完了
     player.lap++;
     if (player.lap > player.totalLaps) { finishRace(); return; }
   }
@@ -963,13 +1011,12 @@ function checkCollisions() {
     }
   });
 
-  // 岩との衝突判定
   rocksData.forEach(rock => {
     if (player.hitTimer > 0) return;
     const dx = player.x - rock.x;
     const dz = player.z - rock.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist < rock.radius + 2.5) { // 2.5 = プレイヤーの半径近似
+    if (dist < rock.radius + 2.5) {
       const pushAngle = Math.atan2(dz, dx);
       player.x += Math.cos(pushAngle) * (rock.radius + 1);
       player.z += Math.sin(pushAngle) * (rock.radius + 1);
@@ -979,7 +1026,6 @@ function checkCollisions() {
     }
   });
 
-  // 木との衝突判定（幹のみ）
   treesData.forEach(tree => {
     if (player.hitTimer > 0) return;
     const dx = player.x - tree.x;
@@ -998,16 +1044,14 @@ function checkCollisions() {
 
 // ==================== カメラ更新（チェイスカメラ、地形追従） ====================
 function updateCamera() {
-  // カメラを車の後方に配置し、進行方向を見る（標準レーシングゲーム視点）
   camera.position.set(
     player.x - Math.cos(player.angle) * GAME.CAM_DIST,
-    GAME.CAM_HEIGHT + player.y, // 地形高さに追従
+    GAME.CAM_HEIGHT + player.y,
     player.z + Math.sin(player.angle) * GAME.CAM_DIST
   );
-  // 車の進行方向先を見つめる
   camera.lookAt(
     player.x + Math.cos(player.angle) * 15,
-    2 + player.y, // 地形高さに追従
+    2 + player.y,
     player.z - Math.sin(player.angle) * 15
   );
 }
@@ -1028,7 +1072,6 @@ function updateItemBoxes(time) {
       const ty = getTerrainHeight(box.mesh.position.x, box.mesh.position.z);
       box.mesh.position.y = ty + 1.5 + Math.sin(time * 3) * 0.5;
       box.mesh.rotation.y += 0.02;
-      // ライトも点滅
       box.light.intensity = 0.3 + Math.sin(time * 5) * 0.3;
     } else if (!box.active) {
       box.respawnTimer -= 1/60;
@@ -1040,11 +1083,8 @@ function updateItemBoxes(time) {
 // ==================== プレイヤー位置更新（地形追従） ====================
 function updatePlayerLocation() {
   playerCar.position.set(player.x, player.y, player.z);
-  // ExtrudeGeometryの前面方向（ローカル+Z）とrotation.y=0の向き（世界座標+X）が
-  // Math.PI/2ずれているため、オフセットを補正して進行方向を向かせる
   playerCar.rotation.y = player.angle + GAME.ROTATION_OFFSET;
 
-  // ステアリングの視覚的フィードバック（車体を少し傾ける）— steerTargetで実際の旋回方向に合わせる
   const tiltAngle = steerTarget * 0.15;
   playerCar.rotation.z = tiltAngle;
 }
